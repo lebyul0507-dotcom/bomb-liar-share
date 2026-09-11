@@ -9,6 +9,8 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 const PLAYERS = ["지니", "윤정", "수히", "아름", "정하"];
+const ALLOWED_DURATIONS = [3, 5, 7];
+const TURN_SECONDS = 30;
 const WORDS = [
   "마라탕","김밥","떡볶이","삼겹살","초밥","치킨","피자","냉면","붕어빵","라면",
   "아이스크림","커피","샌드위치","햄버거","김치찌개","된장찌개","파스타","족발","회","카레",
@@ -35,6 +37,19 @@ function makeRoomCode() {
   return code;
 }
 
+function shuffle(list) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function connectedNames(room) {
+  return PLAYERS.filter(name => !!room.players[name]);
+}
+
 function roomSnapshot(room) {
   return {
     code: room.code,
@@ -48,6 +63,10 @@ function roomSnapshot(room) {
     round: room.round,
     startedAt: room.startedAt,
     endsAt: room.endsAt,
+    durationMinutes: room.durationMinutes,
+    turnSeconds: TURN_SECONDS,
+    roundPlayers: room.roundPlayers || [],
+    turnOrder: room.turnOrder || [],
     results: room.results || null
   };
 }
@@ -58,13 +77,14 @@ function broadcastRoom(room) {
 
 function finishRound(room) {
   if (room.status !== "playing" && room.status !== "voting") return;
+  const targets = room.roundPlayers || [];
   const counts = {};
-  PLAYERS.forEach(n => counts[n] = 0);
+  targets.forEach(name => { counts[name] = 0; });
   Object.values(room.votes).forEach(target => {
-    if (counts[target] !== undefined) counts[target]++;
+    if (Object.prototype.hasOwnProperty.call(counts, target)) counts[target] += 1;
   });
-  const max = Math.max(...Object.values(counts));
-  const top = PLAYERS.filter(n => counts[n] === max);
+  const max = targets.length ? Math.max(...Object.values(counts)) : 0;
+  const top = targets.filter(name => counts[name] === max);
   room.status = "result";
   room.results = {
     liar: room.liar,
@@ -82,6 +102,7 @@ setInterval(() => {
   for (const room of rooms.values()) {
     if (room.status === "playing" && room.endsAt && now >= room.endsAt) {
       room.status = "voting";
+      room.endsAt = null;
       broadcastRoom(room);
       io.to(room.code).emit("timer:ended");
     }
@@ -104,6 +125,9 @@ io.on("connection", socket => {
       liar: null,
       startedAt: null,
       endsAt: null,
+      durationMinutes: 5,
+      roundPlayers: [],
+      turnOrder: [],
       votes: {},
       results: null
     };
@@ -119,23 +143,30 @@ io.on("connection", socket => {
     joinRoom(socket, room, name, cb);
   });
 
-  socket.on("game:start", ({ code }) => {
+  socket.on("game:start", ({ code, durationMinutes }) => {
     const room = rooms.get(code);
     if (!room || socket.data.name !== room.hostName) return;
-    const connected = PLAYERS.filter(n => room.players[n]);
-    if (connected.length !== PLAYERS.length) {
-      socket.emit("error:message", "5명이 모두 입장해야 시작할 수 있습니다.");
+
+    const active = connectedNames(room);
+    if (active.length < 3) {
+      socket.emit("error:message", "최소 3명이 입장해야 시작할 수 있습니다.");
       return;
     }
+
+    const requested = Number(durationMinutes);
+    room.durationMinutes = ALLOWED_DURATIONS.includes(requested) ? requested : 5;
+    room.roundPlayers = [...active];
+    room.turnOrder = shuffle(active);
     room.round += 1;
     room.word = WORDS[Math.floor(Math.random() * WORDS.length)];
-    room.liar = PLAYERS[Math.floor(Math.random() * PLAYERS.length)];
+    room.liar = active[Math.floor(Math.random() * active.length)];
     room.votes = {};
     room.results = null;
     room.status = "playing";
     room.startedAt = Date.now();
-    room.endsAt = room.startedAt + 10 * 60 * 1000;
-    PLAYERS.forEach(name => {
+    room.endsAt = room.startedAt + room.durationMinutes * 60 * 1000;
+
+    active.forEach(name => {
       const sid = room.players[name];
       const s = io.sockets.sockets.get(sid);
       if (!s) return;
@@ -145,6 +176,7 @@ io.on("connection", socket => {
         word: name === room.liar ? null : room.word
       });
     });
+
     broadcastRoom(room);
   });
 
@@ -160,12 +192,18 @@ io.on("connection", socket => {
     const room = rooms.get(code);
     const voter = socket.data.name;
     if (!room || room.status !== "voting") return cb?.({ ok: false, error: "지금은 투표 시간이 아닙니다." });
-    if (!PLAYERS.includes(voter) || !PLAYERS.includes(target)) return cb?.({ ok: false, error: "잘못된 투표입니다." });
+    if (!room.roundPlayers.includes(voter) || !room.roundPlayers.includes(target)) {
+      return cb?.({ ok: false, error: "이번 세션 참가자에게만 투표할 수 있습니다." });
+    }
     if (room.votes[voter]) return cb?.({ ok: false, error: "이미 투표했습니다." });
+
     room.votes[voter] = target;
     cb?.({ ok: true });
     broadcastRoom(room);
-    if (Object.keys(room.votes).length === PLAYERS.length) finishRound(room);
+
+    const eligibleVoters = room.roundPlayers.filter(name => !!room.players[name]);
+    const completed = eligibleVoters.filter(name => !!room.votes[name]).length;
+    if (completed >= eligibleVoters.length && eligibleVoters.length > 0) finishRound(room);
   });
 
   socket.on("game:revealVotes", ({ code }) => {
@@ -180,6 +218,11 @@ io.on("connection", socket => {
     const room = rooms.get(roomCode);
     if (!room) return;
     if (room.players[name] === socket.id) delete room.players[name];
+
+    if (name === room.hostName) {
+      const remaining = connectedNames(room);
+      if (remaining.length) room.hostName = remaining[0];
+    }
     broadcastRoom(room);
   });
 });
@@ -193,13 +236,15 @@ function joinRoom(socket, room, name, cb) {
       old.disconnect(true);
     }
   }
+
   room.players[name] = socket.id;
   socket.data.roomCode = room.code;
   socket.data.name = name;
   socket.join(room.code);
   cb?.({ ok: true, code: room.code, hostName: room.hostName, name });
   broadcastRoom(room);
-  if (room.status === "playing") {
+
+  if (room.status === "playing" && room.roundPlayers.includes(name)) {
     socket.emit("role:reveal", {
       round: room.round,
       isLiar: name === room.liar,
@@ -208,4 +253,4 @@ function joinRoom(socket, room, name, cb) {
   }
 }
 
-server.listen(PORT, () => console.log(`폭탄 라이어 실행: http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Team Sync Sheet running on http://localhost:${PORT}`));
