@@ -3,70 +3,246 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>폭탄 라이어</title>
+<title>Team Sync Sheet</title>
 <style>
-:root{--bg:#0a0b0f;--panel:#14161d;--panel2:#1b1e27;--line:#2a2e3b;--text:#f7f8fb;--muted:#aeb4c3;--red:#ff4d57;--yellow:#ffbd3c;--green:#35d07f}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:radial-gradient(circle at 20% 0%,rgba(255,77,87,.17),transparent 30%),radial-gradient(circle at 90% 15%,rgba(255,189,60,.10),transparent 25%),var(--bg)}
-button,input,select{font:inherit}button{cursor:pointer}.wrap{width:min(980px,calc(100% - 32px));margin:0 auto;padding:36px 0 60px}.brand{font-size:14px;letter-spacing:.18em;color:var(--yellow);font-weight:900}h1{font-size:clamp(40px,7vw,76px);line-height:.98;margin:10px 0 14px}h2{font-size:32px;margin:0 0 14px}p{color:var(--muted);line-height:1.65}.card{background:rgba(20,22,29,.94);border:1px solid var(--line);border-radius:26px;padding:28px;box-shadow:0 28px 80px rgba(0,0,0,.28)}.grid{display:grid;gap:14px}.two{grid-template-columns:repeat(2,minmax(0,1fr))}.players{grid-template-columns:repeat(5,minmax(0,1fr));margin:20px 0}.player{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:18px 12px;text-align:center}.player.on{border-color:#2c8b5c;background:#12251d}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;margin-right:7px}.player.on .dot{background:var(--green)}.btn{border:0;border-radius:16px;padding:15px 18px;font-weight:900;background:var(--red);color:white;min-height:54px}.btn.secondary{background:#262a36}.btn.yellow{background:var(--yellow);color:#181818}.btn.green{background:var(--green);color:#07160d}.btn:disabled{opacity:.35;cursor:not-allowed}input,select{width:100%;background:#0e1016;border:1px solid var(--line);color:var(--text);padding:15px 16px;border-radius:15px;outline:none}label{display:block;font-size:13px;color:var(--muted);margin-bottom:7px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.room-code{font-size:clamp(42px,7vw,72px);font-weight:1000;letter-spacing:.12em;margin:4px 0 18px}.secret{min-height:250px;display:grid;place-items:center;text-align:center;border-radius:24px;border:1px dashed #424656;background:#0f1117;padding:28px}.secret .word{font-size:clamp(42px,8vw,82px);font-weight:1000}.secret.liar{border-color:#75343a;background:#251114}.secret.liar .word{color:#ff7079}.timer{font-variant-numeric:tabular-nums;font-size:clamp(74px,14vw,160px);font-weight:1000;line-height:1;text-align:center;margin:28px 0}.timer.danger{color:var(--red);animation:pulse .55s infinite alternate}@keyframes pulse{to{transform:scale(1.03);text-shadow:0 0 24px rgba(255,77,87,.35)}}.vote-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:18px}.vote{background:var(--panel2);border:1px solid var(--line);color:white;border-radius:18px;padding:20px 10px;font-weight:900}.vote:hover{border-color:var(--yellow)}.hidden{display:none!important}.notice{padding:12px 14px;border-radius:14px;background:#241f12;color:#ffd76f;border:1px solid #4b4020}.result{font-size:22px;line-height:1.7}.big{font-size:46px;font-weight:1000}.small{font-size:13px;color:var(--muted)}.hosttag{display:inline-block;background:#2b2411;color:#ffd36b;border-radius:999px;padding:5px 9px;font-size:11px;margin-left:6px}@media(max-width:720px){.two,.players,.vote-grid{grid-template-columns:1fr}.card{padding:20px}}
+:root{
+  --excel:#107c41;--excel-dark:#0b5f31;--excel-soft:#e9f3ed;--grid:#d9d9d9;
+  --header:#f3f3f3;--text:#222;--muted:#666;--danger:#c62828;--warn:#fff3cd;--blue:#dbeafe;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#ececec;color:var(--text);font-family:Aptos,Calibri,"Segoe UI",Arial,sans-serif;font-size:14px}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh;background:white;max-width:1450px;margin:0 auto;box-shadow:0 0 24px rgba(0,0,0,.15)}
+.titlebar{height:36px;background:var(--excel);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;position:relative}
+.titlebar .filename{font-weight:600}.titlebar .status{position:absolute;right:18px;font-size:12px;opacity:.9}
+.ribbon{background:#fff;border-bottom:1px solid #cfcfcf}
+.menu{display:flex;gap:22px;padding:9px 18px 6px;font-size:13px}
+.menu span:first-child{color:var(--excel);font-weight:700}
+.toolbar{height:48px;border-top:1px solid #eee;padding:7px 18px;display:flex;gap:8px;align-items:center;background:#fafafa}
+.tool{height:30px;padding:0 10px;border:1px solid #ddd;background:white;border-radius:2px;color:#444}
+.formula{display:grid;grid-template-columns:48px 28px 1fr;border-bottom:1px solid #cfcfcf;background:white}
+.namebox,.fx,.formulabox{height:30px;display:flex;align-items:center;border-right:1px solid #ddd;padding:0 8px}.fx{justify-content:center;font-style:italic;color:#777}.formulabox{color:#555}
+.sheet{position:relative;min-height:700px;background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px),linear-gradient(to bottom,var(--grid) 1px,transparent 1px);background-size:118px 26px;padding:26px 0 52px 48px;overflow:auto}
+.colheads{position:sticky;top:0;z-index:4;height:26px;margin-top:-26px;margin-left:0;display:grid;grid-template-columns:repeat(8,118px);background:var(--header);border-bottom:1px solid #bbb}
+.colheads div{display:flex;align-items:center;justify-content:center;border-right:1px solid #ccc;color:#555;font-size:12px}
+.rowheads{position:absolute;top:0;left:0;width:48px;background:var(--header);border-right:1px solid #bbb}
+.rowheads div{height:26px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #ddd;color:#666;font-size:12px}
+.content{width:min(944px,calc(100vw - 90px));padding:26px 0 80px 0;position:relative;z-index:2}
+.section{margin:0 0 26px 0;background:white;border:1px solid #a8a8a8;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.section-title{background:var(--excel);color:white;padding:8px 10px;font-weight:700;border-bottom:1px solid var(--excel-dark)}
+.grid2{display:grid;grid-template-columns:180px 1fr}
+.cell-label,.cell-value{min-height:38px;border-bottom:1px solid var(--grid);border-right:1px solid var(--grid);padding:8px 10px;display:flex;align-items:center}
+.cell-label{background:#f7f7f7;font-weight:600;color:#444}.cell-value{background:white}.grid2>*:nth-last-child(-n+2){border-bottom:0}
+input,select{height:32px;border:1px solid #a6a6a6;border-radius:0;background:white;padding:4px 8px;min-width:180px;color:#222}
+input:focus,select:focus{outline:2px solid #8cc6a8;outline-offset:-1px;border-color:var(--excel)}
+.btn{height:32px;border:1px solid #8a8a8a;background:#fff;color:#222;padding:0 14px;border-radius:2px;font-weight:600}
+.btn.primary{background:var(--excel);color:#fff;border-color:var(--excel-dark)}
+.btn.secondary{background:#f5f5f5}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.hidden{display:none!important}
+.code{font-family:Consolas,monospace;font-weight:700;letter-spacing:.14em;font-size:22px;color:var(--excel-dark)}
+.notice{padding:9px 10px;background:#f7f7f7;border-left:4px solid #999;color:#555}.notice.good{border-left-color:var(--excel);background:var(--excel-soft)}.notice.warn{border-left-color:#d19a00;background:var(--warn)}.notice.danger{border-left-color:var(--danger);background:#fde8e8;color:#8d1111;font-weight:700}
+.table{width:100%;border-collapse:collapse;background:white}.table th,.table td{border:1px solid var(--grid);padding:8px 10px;text-align:left;height:36px}.table th{background:#f3f3f3;font-weight:600}.online{color:var(--excel);font-weight:700}.offline{color:#999}.hosttag{display:inline-block;margin-left:7px;padding:1px 6px;background:#e6f2ea;border:1px solid #b8d7c5;color:var(--excel-dark);font-size:11px}.active-row{background:#edf7f1!important}
+.metricbar{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--grid)}
+.metric{min-height:74px;border-right:1px solid var(--grid);padding:10px}.metric:last-child{border-right:0}.metric .k{font-size:12px;color:#666;margin-bottom:5px}.metric .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}.metric.danger .v{color:var(--danger)}
+.keyword{font-size:30px;font-weight:700;color:#111}.observer{color:#8d1111}
+.turnbox{padding:14px 10px;background:#fafafa;border-bottom:1px solid var(--grid)}.turn-main{font-size:20px;font-weight:700}.turn-time{font-family:Consolas,monospace;font-size:28px;font-weight:700;margin-left:10px}.turn-time.danger{color:var(--danger)}
+.vote-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;border-top:1px solid var(--grid);border-left:1px solid var(--grid)}
+.vote{min-height:52px;background:#fff;border:0;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);font-weight:600}.vote:hover{background:var(--excel-soft)}
+.big-result{font-size:24px;font-weight:700;margin-bottom:10px}.result-line{padding:8px 0;border-bottom:1px solid #eee}
+.sheet-tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(1450px,100%);height:34px;background:#f4f4f4;border-top:1px solid #bbb;display:flex;align-items:flex-end;padding-left:58px;z-index:10}.sheet-tab{height:32px;padding:8px 20px;background:#fff;border-right:1px solid #ccc;color:#555}.sheet-tab.active{color:var(--excel);font-weight:700;border-bottom:3px solid var(--excel)}
+@media(max-width:800px){.sheet{padding-left:36px}.rowheads{width:36px}.content{width:calc(100vw - 58px)}.grid2{grid-template-columns:120px 1fr}.metricbar{grid-template-columns:1fr 1fr}.vote-grid{grid-template-columns:1fr}.colheads{grid-template-columns:repeat(8,96px)}.sheet{background-size:96px 26px}.toolbar{overflow:hidden}.menu{gap:13px}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="brand">BOMB LIAR</div>
-  <h1>폭탄 라이어 💣</h1>
-  <p>5명이 같은 링크로 접속합니다. 네 명은 같은 단어를 보고, 한 명만 단어를 모릅니다.</p>
+<div class="app">
+  <div class="titlebar"><span class="filename">Team_Sync_Sheet_Q3.xlsx</span><span class="status">Saved</span></div>
+  <div class="ribbon">
+    <div class="menu"><span>파일</span><span>홈</span><span>삽입</span><span>데이터</span><span>검토</span><span>보기</span></div>
+    <div class="toolbar"><button class="tool">붙여넣기</button><button class="tool">정렬</button><button class="tool">필터</button><button class="tool">조건부 서식</button><button class="tool">공유</button></div>
+  </div>
+  <div class="formula"><div class="namebox">A1</div><div class="fx">fx</div><div class="formulabox">Team Sync / Collaboration Review</div></div>
 
-  <section id="home" class="card">
-    <h2>게임 입장</h2>
-    <div class="grid two">
-      <div><label>내 이름</label><select id="name"><option value="">이름 선택</option><option>지니</option><option>윤정</option><option>수히</option><option>아름</option><option>정하</option></select></div>
-      <div><label>방 코드</label><input id="code" maxlength="5" placeholder="예: A7K9Q"></div>
+  <main class="sheet">
+    <div class="colheads"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div><div>G</div><div>H</div></div>
+    <div class="rowheads" id="rowheads"></div>
+    <div class="content">
+
+      <section id="home" class="section">
+        <div class="section-title">Team Sync Access</div>
+        <div class="grid2">
+          <div class="cell-label">Participant</div>
+          <div class="cell-value"><select id="name"><option value="">이름 선택</option><option>지니</option><option>윤정</option><option>수히</option><option>아름</option><option>정하</option></select></div>
+          <div class="cell-label">Access Code</div>
+          <div class="cell-value"><input id="code" maxlength="5" placeholder="예: A7K9Q"></div>
+          <div class="cell-label">Action</div>
+          <div class="cell-value"><div class="actions"><button class="btn primary" id="createBtn">새 세션 생성</button><button class="btn secondary" id="joinBtn">세션 참가</button></div></div>
+        </div>
+      </section>
+
+      <section id="lobby" class="section hidden">
+        <div class="section-title">Session Setup</div>
+        <div class="grid2">
+          <div class="cell-label">Session Code</div><div class="cell-value"><span id="roomCode" class="code"></span></div>
+          <div class="cell-label">Share</div><div class="cell-value"><div class="actions"><button class="btn secondary" id="copyBtn">공유 링크 복사</button><span id="copyMsg"></span></div></div>
+          <div class="cell-label">Session Time</div><div class="cell-value"><select id="duration"><option value="3">3분</option><option value="5" selected>5분</option><option value="7">7분</option></select></div>
+          <div class="cell-label">Turn Rule</div><div class="cell-value">참가자별 30초 순서 진행 → 이후 자유 토론</div>
+        </div>
+        <table class="table" style="margin-top:12px"><thead><tr><th>이름</th><th>접속 상태</th><th>세션 포함</th></tr></thead><tbody id="players"></tbody></table>
+        <div id="lobbyNotice" class="notice" style="margin:12px">최소 3명이 접속하면 시작할 수 있습니다.</div>
+        <div class="actions" style="padding:0 12px 12px"><button class="btn primary" id="startBtn">세션 시작</button></div>
+      </section>
+
+      <section id="game" class="section hidden">
+        <div class="section-title">Live Session</div>
+        <div class="metricbar">
+          <div class="metric"><div class="k">Participant</div><div id="meName" class="v"></div></div>
+          <div class="metric"><div class="k">Round</div><div id="round" class="v">1</div></div>
+          <div class="metric"><div class="k">Session Timer</div><div id="timer" class="v">05:00</div></div>
+          <div class="metric"><div class="k">Status</div><div id="sessionStatus" class="v" style="font-size:18px">진행 중</div></div>
+        </div>
+        <div class="grid2">
+          <div class="cell-label">Assigned Keyword</div><div class="cell-value"><span id="secretWord" class="keyword">확인 중...</span></div>
+          <div class="cell-label">Role</div><div class="cell-value"><span id="roleText">Participant</span></div>
+          <div class="cell-label">Guidance</div><div class="cell-value"><span id="secretHelp">키워드를 직접 말하지 않고 설명하세요.</span></div>
+        </div>
+        <div class="turnbox"><span>Current Presenter:</span> <span id="currentSpeaker" class="turn-main">-</span><span id="turnTimer" class="turn-time">00:30</span></div>
+        <div id="finalWarning" class="notice danger hidden" style="margin:12px">마감 30초 전입니다.</div>
+        <table class="table" style="margin:12px 0 0"><thead><tr><th>순서</th><th>이름</th><th>배정 시간</th><th>상태</th></tr></thead><tbody id="turnTable"></tbody></table>
+        <div class="actions" style="padding:12px"><button id="voteNowBtn" class="btn secondary hidden">검토 단계로 이동</button></div>
+      </section>
+
+      <section id="voteScreen" class="section hidden">
+        <div class="section-title">Review Check</div>
+        <div class="notice" style="margin:12px">이번 세션의 검토 담당자라고 생각하는 사람을 선택하세요. 투표 후 변경할 수 없습니다.</div>
+        <div id="voteGrid" class="vote-grid"></div>
+        <div id="voteStatus" class="notice hidden" style="margin:12px"></div>
+        <div class="actions" style="padding:0 12px 12px"><button id="revealBtn" class="btn secondary hidden">현재 투표로 결과 확인</button></div>
+      </section>
+
+      <section id="resultScreen" class="section hidden">
+        <div class="section-title">Review Summary</div>
+        <div id="resultBody" style="padding:14px"></div>
+        <div class="actions" style="padding:0 14px 14px"><button id="nextBtn" class="btn primary hidden">다음 세션 시작</button></div>
+      </section>
+
     </div>
-    <div class="row" style="margin-top:16px"><button class="btn yellow" id="createBtn">새 방 만들기</button><button class="btn secondary" id="joinBtn">방 참가하기</button></div>
-  </section>
+  </main>
 
-  <section id="lobby" class="card hidden">
-    <div class="small">방 코드</div><div id="roomCode" class="room-code"></div>
-    <div class="row"><button class="btn secondary" id="copyBtn">초대 링크 복사</button><span id="copyMsg" class="small"></span></div>
-    <div id="players" class="grid players"></div>
-    <div id="lobbyNotice" class="notice">5명이 모두 들어오면 방장이 게임을 시작할 수 있습니다.</div>
-    <div class="row" style="margin-top:18px"><button class="btn" id="startBtn">게임 시작</button></div>
-  </section>
-
-  <section id="game" class="card hidden">
-    <div class="row" style="justify-content:space-between"><div><span id="meName" class="big"></span><span id="hostBadge"></span></div><div class="small">ROUND <span id="round">1</span></div></div>
-    <div id="secret" class="secret"><div><div class="small">나의 단어</div><div id="secretWord" class="word">확인 중...</div><p id="secretHelp"></p></div></div>
-    <div id="timer" class="timer">10:00</div>
-    <div class="row" style="justify-content:center"><button id="voteNowBtn" class="btn secondary hidden">지금 투표하기</button></div>
-  </section>
-
-  <section id="voteScreen" class="card hidden">
-    <h2>라이어는 누구?</h2><p>한 명을 선택하세요. 한 번 투표하면 변경할 수 없습니다.</p>
-    <div id="voteGrid" class="vote-grid"></div><div id="voteStatus" class="notice hidden" style="margin-top:18px"></div>
-    <div class="row" style="margin-top:16px"><button id="revealBtn" class="btn secondary hidden">현재 투표로 결과 공개</button></div>
-  </section>
-
-  <section id="resultScreen" class="card hidden">
-    <h2>결과 공개</h2><div id="resultBody" class="result"></div>
-    <div class="row" style="margin-top:20px"><button id="nextBtn" class="btn green hidden">다음 판 시작</button></div>
-  </section>
+  <div class="sheet-tabs"><div class="sheet-tab active">Overview</div><div class="sheet-tab">Participants</div><div class="sheet-tab">Session</div><div class="sheet-tab">Review</div></div>
 </div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket=io();const NAMES=["지니","윤정","수히","아름","정하"];let roomCode=null,myName=null,hostName=null,endsAt=null,timerId=null;const $=id=>document.getElementById(id);function show(id){["home","lobby","game","voteScreen","resultScreen"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}function errorMsg(msg){alert(msg)}const params=new URLSearchParams(location.search);if(params.get("room"))$("code").value=params.get("room").toUpperCase();
+const socket=io();
+const NAMES=["지니","윤정","수히","아름","정하"];
+let roomCode=null,myName=null,hostName=null,endsAt=null,timerId=null,currentRoom=null;
+const $=id=>document.getElementById(id);
+
+$("rowheads").innerHTML=Array.from({length:40},(_,i)=>`<div>${i+1}</div>`).join("");
+function show(id){["home","lobby","game","voteScreen","resultScreen"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function errorMsg(msg){alert(msg)}
+const params=new URLSearchParams(location.search);if(params.get("room"))$("code").value=params.get("room").toUpperCase();
+
 $("createBtn").onclick=()=>{const name=$("name").value;if(!name)return errorMsg("이름을 선택하세요.");socket.emit("room:create",{name},res=>{if(!res.ok)return errorMsg(res.error);enterRoom(res)})};
-$("joinBtn").onclick=()=>{const name=$("name").value,code=$("code").value.trim().toUpperCase();if(!name)return errorMsg("이름을 선택하세요.");if(!code)return errorMsg("방 코드를 입력하세요.");socket.emit("room:join",{name,code},res=>{if(!res.ok)return errorMsg(res.error);enterRoom(res)})};
+$("joinBtn").onclick=()=>{const name=$("name").value,code=$("code").value.trim().toUpperCase();if(!name)return errorMsg("이름을 선택하세요.");if(!code)return errorMsg("세션 코드를 입력하세요.");socket.emit("room:join",{name,code},res=>{if(!res.ok)return errorMsg(res.error);enterRoom(res)})};
 function enterRoom(res){roomCode=res.code;myName=res.name;hostName=res.hostName;history.replaceState(null,"",`?room=${roomCode}`);$("roomCode").textContent=roomCode;$("meName").textContent=myName;show("lobby")}
-$("copyBtn").onclick=async()=>{const url=`${location.origin}${location.pathname}?room=${roomCode}`;try{await navigator.clipboard.writeText(url);$("copyMsg").textContent="초대 링크가 복사됐습니다."}catch{prompt("이 링크를 복사하세요.",url)}};
-$("startBtn").onclick=()=>socket.emit("game:start",{code:roomCode});$("nextBtn").onclick=()=>socket.emit("game:start",{code:roomCode});$("voteNowBtn").onclick=()=>socket.emit("game:voteNow",{code:roomCode});$("revealBtn").onclick=()=>socket.emit("game:revealVotes",{code:roomCode});
-socket.on("room:update",room=>{roomCode=room.code;hostName=room.hostName;$("roomCode").textContent=room.code;renderPlayers(room);renderHostControls(room);if(room.status==="lobby")show("lobby");else if(room.status==="playing"){endsAt=room.endsAt;show("game");startTimer()}else if(room.status==="voting"){stopTimer();show("voteScreen");renderVotes(room)}else if(room.status==="result"){stopTimer();show("resultScreen");renderResult(room)}});
-socket.on("role:reveal",data=>{$("round").textContent=data.round;$("secret").classList.toggle("liar",data.isLiar);$("secretWord").textContent=data.isLiar?"당신은 라이어":data.word;$("secretHelp").textContent=data.isLiar?"단어를 들키지 않게 추리하세요.":"단어를 직접 말하지 말고 자연스럽게 설명하세요."});
-socket.on("timer:ended",()=>stopTimer());socket.on("error:message",errorMsg);socket.on("session:replaced",()=>{alert("같은 이름으로 다른 PC에서 접속해 현재 세션이 종료됐습니다.");location.href=location.pathname});
-function renderPlayers(room){$("players").innerHTML=room.players.map(p=>`<div class="player ${p.connected?"on":""}"><div><span class="dot"></span><b>${p.name}</b>${p.name===room.hostName?'<span class="hosttag">방장</span>':''}</div><div class="small" style="margin-top:6px">${p.connected?"접속":"대기"}</div></div>`).join("");const all=room.players.every(p=>p.connected);$("lobbyNotice").textContent=all?"5명 모두 입장했습니다. 게임을 시작하세요.":"5명이 모두 들어오면 방장이 게임을 시작할 수 있습니다."}
-function renderHostControls(room){const isHost=myName===room.hostName,all=room.players.every(p=>p.connected);$("startBtn").classList.toggle("hidden",!isHost);$("startBtn").disabled=!all;$("voteNowBtn").classList.toggle("hidden",!isHost);$("revealBtn").classList.toggle("hidden",!isHost);$("nextBtn").classList.toggle("hidden",!isHost);$("hostBadge").innerHTML=isHost?'<span class="hosttag">방장</span>':""}
-function startTimer(){stopTimer();const tick=()=>{if(!endsAt)return;const left=Math.max(0,endsAt-Date.now()),total=Math.ceil(left/1000),m=String(Math.floor(total/60)).padStart(2,"0"),s=String(total%60).padStart(2,"0");$("timer").textContent=`${m}:${s}`;$("timer").classList.toggle("danger",total<=30);if(left<=0)stopTimer()};tick();timerId=setInterval(tick,250)}function stopTimer(){if(timerId)clearInterval(timerId);timerId=null}
-function renderVotes(room){const me=room.players.find(p=>p.name===myName),already=me?.voted;$("voteGrid").innerHTML=NAMES.map(name=>`<button class="vote" data-name="${name}" ${already?"disabled":""}>${name}</button>`).join("");document.querySelectorAll(".vote").forEach(btn=>{btn.onclick=()=>{const target=btn.dataset.name;if(!confirm(`${target} 님에게 투표할까요?`))return;socket.emit("vote:submit",{code:roomCode,target},res=>{if(!res.ok)errorMsg(res.error)})}});const count=room.players.filter(p=>p.voted).length;$("voteStatus").classList.remove("hidden");$("voteStatus").textContent=`현재 ${count}/5명 투표 완료`}
-function renderResult(room){const r=room.results;if(!r)return;const ranking=Object.entries(r.counts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`<div>${name} — ${count}표</div>`).join("");const verdict=r.caught?"🎯 라이어를 잡았습니다!":"💣 라이어가 살아남았습니다!";$("resultBody").innerHTML=`<div class="big">${verdict}</div><p>라이어: <b style="color:#ff7079">${r.liar}</b></p><p>정답 단어: <b style="color:#ffd36b">${r.word}</b></p><hr style="border:0;border-top:1px solid #2a2e3b;margin:20px 0">${ranking}`}
+
+$("copyBtn").onclick=async()=>{const url=`${location.origin}${location.pathname}?room=${roomCode}`;try{await navigator.clipboard.writeText(url);$("copyMsg").textContent="복사 완료"}catch{prompt("이 링크를 복사하세요.",url)}};
+function startSession(){socket.emit("game:start",{code:roomCode,durationMinutes:Number($("duration").value)})}
+$("startBtn").onclick=startSession;$("nextBtn").onclick=startSession;
+$("voteNowBtn").onclick=()=>socket.emit("game:voteNow",{code:roomCode});
+$("revealBtn").onclick=()=>socket.emit("game:revealVotes",{code:roomCode});
+
+socket.on("room:update",room=>{
+  currentRoom=room;roomCode=room.code;hostName=room.hostName;$("roomCode").textContent=room.code;
+  renderPlayers(room);renderHostControls(room);
+  if(room.status==="lobby"){show("lobby")}
+  else if(room.status==="playing"){endsAt=room.endsAt;show("game");renderTurnTable(room);startTimer()}
+  else if(room.status==="voting"){stopTimer();show("voteScreen");renderVotes(room)}
+  else if(room.status==="result"){stopTimer();show("resultScreen");renderResult(room)}
+});
+
+socket.on("role:reveal",data=>{
+  $("round").textContent=data.round;
+  if(data.isLiar){
+    $("secretWord").textContent="—";$("secretWord").classList.add("observer");$("roleText").textContent="Observer";$("secretHelp").textContent="다른 참가자의 설명을 바탕으로 키워드를 추리하세요.";
+  }else{
+    $("secretWord").textContent=data.word;$("secretWord").classList.remove("observer");$("roleText").textContent="Participant";$("secretHelp").textContent="키워드를 직접 말하지 않고 자연스럽게 설명하세요.";
+  }
+});
+
+socket.on("timer:ended",()=>stopTimer());
+socket.on("error:message",errorMsg);
+socket.on("session:replaced",()=>{alert("같은 이름으로 다른 PC에서 접속해 현재 세션이 종료됐습니다.");location.href=location.pathname});
+
+function renderPlayers(room){
+  const activeSet=new Set(room.roundPlayers||[]);
+  $("players").innerHTML=room.players.map(p=>`<tr class="${p.connected?'active-row':''}"><td>${p.name}${p.name===room.hostName?'<span class="hosttag">HOST</span>':''}</td><td class="${p.connected?'online':'offline'}">${p.connected?'Online':'Offline'}</td><td>${activeSet.has(p.name)?'Included':'-'}</td></tr>`).join("");
+  const count=room.players.filter(p=>p.connected).length;
+  $("lobbyNotice").className=`notice ${count>=3?'good':''}`;
+  $("lobbyNotice").textContent=count>=3?`${count}명 접속 중 · 바로 시작할 수 있습니다.`:`${count}명 접속 중 · 최소 3명이 필요합니다.`;
+}
+
+function renderHostControls(room){
+  const isHost=myName===room.hostName,count=room.players.filter(p=>p.connected).length;
+  $("startBtn").classList.toggle("hidden",!isHost);$("startBtn").disabled=count<3;
+  $("duration").disabled=!isHost;
+  $("voteNowBtn").classList.toggle("hidden",!isHost);$("revealBtn").classList.toggle("hidden",!isHost);$("nextBtn").classList.toggle("hidden",!isHost);
+}
+
+function renderTurnTable(room){
+  $("turnTable").innerHTML=(room.turnOrder||[]).map((name,i)=>`<tr data-turn="${i}"><td>${i+1}</td><td>${name}</td><td>30초</td><td class="turn-state">대기</td></tr>`).join("");
+}
+
+function startTimer(){
+  stopTimer();
+  const tick=()=>{
+    if(!currentRoom||!currentRoom.startedAt||!endsAt)return;
+    const now=Date.now();
+    const left=Math.max(0,endsAt-now),total=Math.ceil(left/1000),m=String(Math.floor(total/60)).padStart(2,"0"),s=String(total%60).padStart(2,"0");
+    $("timer").textContent=`${m}:${s}`;
+    const timerMetric=$("timer").closest('.metric');timerMetric.classList.toggle('danger',total<=30);
+    $("finalWarning").classList.toggle("hidden",total>30||total===0);
+    $("sessionStatus").textContent=total<=30&&total>0?"마감 임박":"진행 중";
+    updateTurn(now);
+    if(left<=0)stopTimer();
+  };
+  tick();timerId=setInterval(tick,250);
+}
+function stopTimer(){if(timerId)clearInterval(timerId);timerId=null}
+
+function updateTurn(now){
+  if(!currentRoom)return;
+  const order=currentRoom.turnOrder||[],turnSeconds=currentRoom.turnSeconds||30;
+  const elapsed=Math.max(0,Math.floor((now-currentRoom.startedAt)/1000));
+  const idx=Math.floor(elapsed/turnSeconds);
+  const rows=[...document.querySelectorAll('#turnTable tr')];
+  rows.forEach((row,i)=>{row.classList.remove('active-row');const state=row.querySelector('.turn-state');state.textContent=i<idx?'완료':i===idx&&idx<order.length?'진행 중':'대기'});
+  if(idx<order.length){
+    const remain=turnSeconds-(elapsed%turnSeconds);$("currentSpeaker").textContent=order[idx];$("turnTimer").textContent=`00:${String(remain).padStart(2,'0')}`;$("turnTimer").classList.toggle('danger',remain<=5);if(rows[idx])rows[idx].classList.add('active-row');
+  }else{
+    $("currentSpeaker").textContent="자유 토론";$("turnTimer").textContent="--:--";$("turnTimer").classList.remove('danger');rows.forEach(row=>{const st=row.querySelector('.turn-state');if(st)st.textContent='완료'});
+  }
+}
+
+function renderVotes(room){
+  const eligible=room.roundPlayers||[];
+  const me=room.players.find(p=>p.name===myName),already=me?.voted;
+  $("voteGrid").innerHTML=eligible.map(name=>`<button class="vote" data-name="${name}" ${already?'disabled':''}>${name}</button>`).join("");
+  document.querySelectorAll('.vote').forEach(btn=>{btn.onclick=()=>{const target=btn.dataset.name;if(!confirm(`${target} 님을 선택할까요?`))return;socket.emit('vote:submit',{code:roomCode,target},res=>{if(!res.ok)errorMsg(res.error)})}});
+  const count=room.players.filter(p=>eligible.includes(p.name)&&p.voted).length;
+  $("voteStatus").classList.remove('hidden');$("voteStatus").textContent=`투표 완료 ${count}/${eligible.length}`;
+}
+
+function renderResult(room){
+  const r=room.results;if(!r)return;
+  const ranking=Object.entries(r.counts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`<div class="result-line">${name}<span style="float:right">${count}표</span></div>`).join('');
+  const verdict=r.caught?'검토 담당자를 정확히 확인했습니다.':'검토 담당자를 확인하지 못했습니다.';
+  $("resultBody").innerHTML=`<div class="big-result">${verdict}</div><div class="result-line"><b>검토 담당자</b><span style="float:right">${r.liar}</span></div><div class="result-line"><b>공통 키워드</b><span style="float:right">${r.word}</span></div><div style="margin-top:14px">${ranking}</div>`;
+}
 </script>
 </body>
 </html>
