@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>폭탄 라이어</title>
+<style>
+:root{--bg:#0a0b0f;--panel:#14161d;--panel2:#1b1e27;--line:#2a2e3b;--text:#f7f8fb;--muted:#aeb4c3;--red:#ff4d57;--yellow:#ffbd3c;--green:#35d07f}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:radial-gradient(circle at 20% 0%,rgba(255,77,87,.17),transparent 30%),radial-gradient(circle at 90% 15%,rgba(255,189,60,.10),transparent 25%),var(--bg)}
+button,input,select{font:inherit}button{cursor:pointer}.wrap{width:min(980px,calc(100% - 32px));margin:0 auto;padding:36px 0 60px}.brand{font-size:14px;letter-spacing:.18em;color:var(--yellow);font-weight:900}h1{font-size:clamp(40px,7vw,76px);line-height:.98;margin:10px 0 14px}h2{font-size:32px;margin:0 0 14px}p{color:var(--muted);line-height:1.65}.card{background:rgba(20,22,29,.94);border:1px solid var(--line);border-radius:26px;padding:28px;box-shadow:0 28px 80px rgba(0,0,0,.28)}.grid{display:grid;gap:14px}.two{grid-template-columns:repeat(2,minmax(0,1fr))}.players{grid-template-columns:repeat(5,minmax(0,1fr));margin:20px 0}.player{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:18px 12px;text-align:center}.player.on{border-color:#2c8b5c;background:#12251d}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;margin-right:7px}.player.on .dot{background:var(--green)}.btn{border:0;border-radius:16px;padding:15px 18px;font-weight:900;background:var(--red);color:white;min-height:54px}.btn.secondary{background:#262a36}.btn.yellow{background:var(--yellow);color:#181818}.btn.green{background:var(--green);color:#07160d}.btn:disabled{opacity:.35;cursor:not-allowed}input,select{width:100%;background:#0e1016;border:1px solid var(--line);color:var(--text);padding:15px 16px;border-radius:15px;outline:none}label{display:block;font-size:13px;color:var(--muted);margin-bottom:7px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.room-code{font-size:clamp(42px,7vw,72px);font-weight:1000;letter-spacing:.12em;margin:4px 0 18px}.secret{min-height:250px;display:grid;place-items:center;text-align:center;border-radius:24px;border:1px dashed #424656;background:#0f1117;padding:28px}.secret .word{font-size:clamp(42px,8vw,82px);font-weight:1000}.secret.liar{border-color:#75343a;background:#251114}.secret.liar .word{color:#ff7079}.timer{font-variant-numeric:tabular-nums;font-size:clamp(74px,14vw,160px);font-weight:1000;line-height:1;text-align:center;margin:28px 0}.timer.danger{color:var(--red);animation:pulse .55s infinite alternate}@keyframes pulse{to{transform:scale(1.03);text-shadow:0 0 24px rgba(255,77,87,.35)}}.vote-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:18px}.vote{background:var(--panel2);border:1px solid var(--line);color:white;border-radius:18px;padding:20px 10px;font-weight:900}.vote:hover{border-color:var(--yellow)}.hidden{display:none!important}.notice{padding:12px 14px;border-radius:14px;background:#241f12;color:#ffd76f;border:1px solid #4b4020}.result{font-size:22px;line-height:1.7}.big{font-size:46px;font-weight:1000}.small{font-size:13px;color:var(--muted)}.hosttag{display:inline-block;background:#2b2411;color:#ffd36b;border-radius:999px;padding:5px 9px;font-size:11px;margin-left:6px}@media(max-width:720px){.two,.players,.vote-grid{grid-template-columns:1fr}.card{padding:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">BOMB LIAR</div>
+  <h1>폭탄 라이어 💣</h1>
+  <p>5명이 같은 링크로 접속합니다. 네 명은 같은 단어를 보고, 한 명만 단어를 모릅니다.</p>
+
+  <section id="home" class="card">
+    <h2>게임 입장</h2>
+    <div class="grid two">
+      <div><label>내 이름</label><select id="name"><option value="">이름 선택</option><option>지니</option><option>윤정</option><option>수히</option><option>아름</option><option>정하</option></select></div>
+      <div><label>방 코드</label><input id="code" maxlength="5" placeholder="예: A7K9Q"></div>
+    </div>
+    <div class="row" style="margin-top:16px"><button class="btn yellow" id="createBtn">새 방 만들기</button><button class="btn secondary" id="joinBtn">방 참가하기</button></div>
+  </section>
+
+  <section id="lobby" class="card hidden">
+    <div class="small">방 코드</div><div id="roomCode" class="room-code"></div>
+    <div class="row"><button class="btn secondary" id="copyBtn">초대 링크 복사</button><span id="copyMsg" class="small"></span></div>
+    <div id="players" class="grid players"></div>
+    <div id="lobbyNotice" class="notice">5명이 모두 들어오면 방장이 게임을 시작할 수 있습니다.</div>
+    <div class="row" style="margin-top:18px"><button class="btn" id="startBtn">게임 시작</button></div>
+  </section>
+
+  <section id="game" class="card hidden">
+    <div class="row" style="justify-content:space-between"><div><span id="meName" class="big"></span><span id="hostBadge"></span></div><div class="small">ROUND <span id="round">1</span></div></div>
+    <div id="secret" class="secret"><div><div class="small">나의 단어</div><div id="secretWord" class="word">확인 중...</div><p id="secretHelp"></p></div></div>
+    <div id="timer" class="timer">10:00</div>
+    <div class="row" style="justify-content:center"><button id="voteNowBtn" class="btn secondary hidden">지금 투표하기</button></div>
+  </section>
+
+  <section id="voteScreen" class="card hidden">
+    <h2>라이어는 누구?</h2><p>한 명을 선택하세요. 한 번 투표하면 변경할 수 없습니다.</p>
+    <div id="voteGrid" class="vote-grid"></div><div id="voteStatus" class="notice hidden" style="margin-top:18px"></div>
+    <div class="row" style="margin-top:16px"><button id="revealBtn" class="btn secondary hidden">현재 투표로 결과 공개</button></div>
+  </section>
+
+  <section id="resultScreen" class="card hidden">
+    <h2>결과 공개</h2><div id="resultBody" class="result"></div>
+    <div class="row" style="margin-top:20px"><button id="nextBtn" class="btn green hidden">다음 판 시작</button></div>
+  </section>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket=io();const NAMES=["지니","윤정","수히","아름","정하"];let roomCode=null,myName=null,hostName=null,endsAt=null,timerId=null;const $=id=>document.getElementById(id);function show(id){["home","lobby","game","voteScreen","resultScreen"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}function errorMsg(msg){alert(msg)}const params=new URLSearchParams(location.search);if(params.get("room"))$("code").value=params.get("room").toUpperCase();
+$("createBtn").onclick=()=>{const name=$("name").value;if(!name)return errorMsg("이름을 선택하세요.");socket.emit("room:create",{name},res=>{if(!res.ok)return errorMsg(res.error);enterRoom(res)})};
+$("joinBtn").onclick=()=>{const name=$("name").value,code=$("code").value.trim().toUpperCase();if(!name)return errorMsg("이름을 선택하세요.");if(!code)return errorMsg("방 코드를 입력하세요.");socket.emit("room:join",{name,code},res=>{if(!res.ok)return errorMsg(res.error);enterRoom(res)})};
+function enterRoom(res){roomCode=res.code;myName=res.name;hostName=res.hostName;history.replaceState(null,"",`?room=${roomCode}`);$("roomCode").textContent=roomCode;$("meName").textContent=myName;show("lobby")}
+$("copyBtn").onclick=async()=>{const url=`${location.origin}${location.pathname}?room=${roomCode}`;try{await navigator.clipboard.writeText(url);$("copyMsg").textContent="초대 링크가 복사됐습니다."}catch{prompt("이 링크를 복사하세요.",url)}};
+$("startBtn").onclick=()=>socket.emit("game:start",{code:roomCode});$("nextBtn").onclick=()=>socket.emit("game:start",{code:roomCode});$("voteNowBtn").onclick=()=>socket.emit("game:voteNow",{code:roomCode});$("revealBtn").onclick=()=>socket.emit("game:revealVotes",{code:roomCode});
+socket.on("room:update",room=>{roomCode=room.code;hostName=room.hostName;$("roomCode").textContent=room.code;renderPlayers(room);renderHostControls(room);if(room.status==="lobby")show("lobby");else if(room.status==="playing"){endsAt=room.endsAt;show("game");startTimer()}else if(room.status==="voting"){stopTimer();show("voteScreen");renderVotes(room)}else if(room.status==="result"){stopTimer();show("resultScreen");renderResult(room)}});
+socket.on("role:reveal",data=>{$("round").textContent=data.round;$("secret").classList.toggle("liar",data.isLiar);$("secretWord").textContent=data.isLiar?"당신은 라이어":data.word;$("secretHelp").textContent=data.isLiar?"단어를 들키지 않게 추리하세요.":"단어를 직접 말하지 말고 자연스럽게 설명하세요."});
+socket.on("timer:ended",()=>stopTimer());socket.on("error:message",errorMsg);socket.on("session:replaced",()=>{alert("같은 이름으로 다른 PC에서 접속해 현재 세션이 종료됐습니다.");location.href=location.pathname});
+function renderPlayers(room){$("players").innerHTML=room.players.map(p=>`<div class="player ${p.connected?"on":""}"><div><span class="dot"></span><b>${p.name}</b>${p.name===room.hostName?'<span class="hosttag">방장</span>':''}</div><div class="small" style="margin-top:6px">${p.connected?"접속":"대기"}</div></div>`).join("");const all=room.players.every(p=>p.connected);$("lobbyNotice").textContent=all?"5명 모두 입장했습니다. 게임을 시작하세요.":"5명이 모두 들어오면 방장이 게임을 시작할 수 있습니다."}
+function renderHostControls(room){const isHost=myName===room.hostName,all=room.players.every(p=>p.connected);$("startBtn").classList.toggle("hidden",!isHost);$("startBtn").disabled=!all;$("voteNowBtn").classList.toggle("hidden",!isHost);$("revealBtn").classList.toggle("hidden",!isHost);$("nextBtn").classList.toggle("hidden",!isHost);$("hostBadge").innerHTML=isHost?'<span class="hosttag">방장</span>':""}
+function startTimer(){stopTimer();const tick=()=>{if(!endsAt)return;const left=Math.max(0,endsAt-Date.now()),total=Math.ceil(left/1000),m=String(Math.floor(total/60)).padStart(2,"0"),s=String(total%60).padStart(2,"0");$("timer").textContent=`${m}:${s}`;$("timer").classList.toggle("danger",total<=30);if(left<=0)stopTimer()};tick();timerId=setInterval(tick,250)}function stopTimer(){if(timerId)clearInterval(timerId);timerId=null}
+function renderVotes(room){const me=room.players.find(p=>p.name===myName),already=me?.voted;$("voteGrid").innerHTML=NAMES.map(name=>`<button class="vote" data-name="${name}" ${already?"disabled":""}>${name}</button>`).join("");document.querySelectorAll(".vote").forEach(btn=>{btn.onclick=()=>{const target=btn.dataset.name;if(!confirm(`${target} 님에게 투표할까요?`))return;socket.emit("vote:submit",{code:roomCode,target},res=>{if(!res.ok)errorMsg(res.error)})}});const count=room.players.filter(p=>p.voted).length;$("voteStatus").classList.remove("hidden");$("voteStatus").textContent=`현재 ${count}/5명 투표 완료`}
+function renderResult(room){const r=room.results;if(!r)return;const ranking=Object.entries(r.counts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`<div>${name} — ${count}표</div>`).join("");const verdict=r.caught?"🎯 라이어를 잡았습니다!":"💣 라이어가 살아남았습니다!";$("resultBody").innerHTML=`<div class="big">${verdict}</div><p>라이어: <b style="color:#ff7079">${r.liar}</b></p><p>정답 단어: <b style="color:#ffd36b">${r.word}</b></p><hr style="border:0;border-top:1px solid #2a2e3b;margin:20px 0">${ranking}`}
+</script>
+</body>
+</html>
