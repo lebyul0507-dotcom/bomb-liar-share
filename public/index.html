@@ -5,28 +5,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Weekly Coordination Sheet</title>
 <style>
-:root{--excel:#107c41;--excel-dark:#0b5f31;--excel-soft:#e9f3ed;--grid:#d9d9d9;--header:#f3f3f3;--text:#222;--muted:#666;--danger:#c62828;--warn:#fff3cd;--blue:#eaf3ff}
-*{box-sizing:border-box}body{margin:0;background:#ececec;color:var(--text);font-family:Aptos,Calibri,"Segoe UI",Arial,sans-serif;font-size:14px}button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:100vh;background:white;max-width:1450px;margin:0 auto;box-shadow:0 0 24px rgba(0,0,0,.15)}
-.titlebar{height:36px;background:var(--excel);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;position:relative}.titlebar .filename{font-weight:600}.titlebar .status{position:absolute;right:18px;font-size:12px;opacity:.9}.ribbon{background:#fff;border-bottom:1px solid #cfcfcf}.menu{display:flex;gap:22px;padding:9px 18px 6px;font-size:13px}.menu span:first-child{color:var(--excel);font-weight:700}.toolbar{height:48px;border-top:1px solid #eee;padding:7px 18px;display:flex;gap:8px;align-items:center;background:#fafafa}.tool{height:30px;padding:0 10px;border:1px solid #ddd;background:white;border-radius:2px;color:#444}.formula{display:grid;grid-template-columns:48px 28px 1fr;border-bottom:1px solid #cfcfcf;background:white}.namebox,.fx,.formulabox{height:30px;display:flex;align-items:center;border-right:1px solid #ddd;padding:0 8px}.fx{justify-content:center;font-style:italic;color:#777}.formulabox{color:#555}
-.sheet{position:relative;min-height:760px;background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px),linear-gradient(to bottom,var(--grid) 1px,transparent 1px);background-size:118px 26px;padding:26px 0 52px 48px;overflow:auto}.colheads{position:sticky;top:0;z-index:4;height:26px;margin-top:-26px;display:grid;grid-template-columns:repeat(8,118px);background:var(--header);border-bottom:1px solid #bbb}.colheads div{display:flex;align-items:center;justify-content:center;border-right:1px solid #ccc;color:#555;font-size:12px}.rowheads{position:absolute;top:0;left:0;width:48px;background:var(--header);border-right:1px solid #bbb}.rowheads div{height:26px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #ddd;color:#666;font-size:12px}.content{width:min(1062px,calc(100vw - 90px));padding:26px 0 80px;position:relative;z-index:2}.section{margin:0 0 26px;background:white;border:1px solid #a8a8a8;box-shadow:0 1px 2px rgba(0,0,0,.05)}.section-title{background:var(--excel);color:white;padding:8px 10px;font-weight:700;border-bottom:1px solid var(--excel-dark)}
-.grid2{display:grid;grid-template-columns:180px 1fr}.cell-label,.cell-value{min-height:38px;border-bottom:1px solid var(--grid);border-right:1px solid var(--grid);padding:8px 10px;display:flex;align-items:center}.cell-label{background:#f7f7f7;font-weight:600;color:#444}.cell-value{background:white}input,select,textarea{border:1px solid #a6a6a6;border-radius:0;background:white;padding:6px 8px;color:#222}input,select{height:32px;min-width:180px}textarea{width:100%;min-height:62px;resize:vertical}input:focus,select:focus,textarea:focus{outline:2px solid #8cc6a8;outline-offset:-1px;border-color:var(--excel)}
-.btn{height:32px;border:1px solid #8a8a8a;background:#fff;color:#222;padding:0 14px;border-radius:2px;font-weight:600}.btn.primary{background:var(--excel);color:#fff;border-color:var(--excel-dark)}.btn.secondary{background:#f5f5f5}.btn:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.hidden{display:none!important}.code{font-family:Consolas,monospace;font-weight:700;letter-spacing:.14em;font-size:22px;color:var(--excel-dark)}.notice{padding:9px 10px;background:#f7f7f7;border-left:4px solid #999;color:#555}.notice.good{border-left-color:var(--excel);background:var(--excel-soft)}.notice.warn{border-left-color:#d19a00;background:var(--warn)}.notice.danger{border-left-color:var(--danger);background:#fde8e8;color:#8d1111;font-weight:700}
-.table{width:100%;border-collapse:collapse;background:white}.table th,.table td{border:1px solid var(--grid);padding:8px 10px;text-align:left;height:36px}.table th{background:#f3f3f3;font-weight:600}.online{color:var(--excel);font-weight:700}.offline{color:#999}.hosttag{display:inline-block;margin-left:7px;padding:1px 6px;background:#e6f2ea;border:1px solid #b8d7c5;color:var(--excel-dark);font-size:11px}.metricbar{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--grid)}.metric{min-height:74px;border-right:1px solid var(--grid);padding:10px}.metric:last-child{border-right:0}.metric .k{font-size:12px;color:#666;margin-bottom:5px}.metric .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}.metric.danger .v{color:var(--danger)}.keyword{font-size:28px;font-weight:700;color:#111}.turnbox{padding:12px 10px;background:#fafafa;border-bottom:1px solid var(--grid)}.turn-main{font-size:20px;font-weight:700}.turn-time{font-family:Consolas,monospace;font-size:26px;font-weight:700;margin-left:10px}.turn-time.danger{color:var(--danger)}
-.notes-wrap{border-top:1px solid var(--grid)}.notes-title{padding:8px 10px;background:#f3f3f3;border-bottom:1px solid var(--grid);font-weight:700}.notes-list{height:270px;overflow:auto;background:white}.note-row{display:grid;grid-template-columns:76px 110px 1fr;border-bottom:1px solid var(--grid);min-height:42px}.note-row>div{padding:9px 10px;border-right:1px solid var(--grid)}.note-row .time{color:#777;font-family:Consolas,monospace}.note-row .name{font-weight:700}.note-row.mine{background:#f3faf6}.note-row.empty{display:block;padding:22px;color:#777;text-align:center}.composer{display:grid;grid-template-columns:1fr 100px;gap:8px;padding:10px;background:#fafafa;border-top:1px solid var(--grid)}.composer-status{padding:7px 10px;background:#fff;border-top:1px solid var(--grid);color:#666}.composer-status.active{color:var(--excel-dark);font-weight:700;background:var(--excel-soft)}
-.vote-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;border-top:1px solid var(--grid);border-left:1px solid var(--grid)}.vote{min-height:52px;background:#fff;border:0;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);font-weight:600}.vote:hover{background:var(--excel-soft)}.big-result{font-size:24px;font-weight:700;margin-bottom:10px}.result-line{padding:8px 0;border-bottom:1px solid #eee}.sheet-tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(1450px,100%);height:34px;background:#f4f4f4;border-top:1px solid #bbb;display:flex;align-items:flex-end;padding-left:58px;z-index:10}.sheet-tab{height:32px;padding:8px 20px;background:#fff;border-right:1px solid #ccc;color:#555}.sheet-tab.active{color:var(--excel);font-weight:700;border-bottom:3px solid var(--excel)}
-@media(max-width:800px){.sheet{padding-left:36px}.rowheads{width:36px}.content{width:calc(100vw - 58px)}.grid2{grid-template-columns:120px 1fr}.metricbar{grid-template-columns:1fr 1fr}.vote-grid{grid-template-columns:1fr}.colheads{grid-template-columns:repeat(8,96px)}.sheet{background-size:96px 26px}.toolbar{overflow:hidden}.menu{gap:13px}.note-row{grid-template-columns:62px 82px 1fr}.composer{grid-template-columns:1fr}}
+:root{--excel:#107c41;--excel-dark:#0b5f31;--excel-soft:#e9f3ed;--grid:#d9d9d9;--header:#f3f3f3;--text:#222;--muted:#666;--danger:#c62828;--warn:#fff3cd}
+*{box-sizing:border-box}body{margin:0;background:#ececec;color:var(--text);font-family:Aptos,Calibri,"Segoe UI",Arial,sans-serif;font-size:14px}button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:100vh;background:#fff;max-width:1450px;margin:0 auto;box-shadow:0 0 24px rgba(0,0,0,.15)}
+.titlebar{height:36px;background:var(--excel);color:#fff;display:flex;align-items:center;justify-content:center;position:relative}.titlebar .status{position:absolute;right:18px;font-size:12px}.ribbon{border-bottom:1px solid #ccc;background:#fff}.menu{display:flex;gap:22px;padding:9px 18px 6px}.menu span:first-child{color:var(--excel);font-weight:700}.toolbar{height:48px;border-top:1px solid #eee;padding:7px 18px;display:flex;gap:8px;align-items:center;background:#fafafa}.tool{height:30px;padding:0 10px;border:1px solid #ddd;background:#fff;color:#444}.formula{display:grid;grid-template-columns:48px 28px 1fr;border-bottom:1px solid #ccc}.namebox,.fx,.formulabox{height:30px;display:flex;align-items:center;border-right:1px solid #ddd;padding:0 8px}.fx{justify-content:center;font-style:italic;color:#777}
+.sheet{position:relative;min-height:780px;background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px),linear-gradient(to bottom,var(--grid) 1px,transparent 1px);background-size:118px 26px;padding:26px 0 52px 48px;overflow:auto}.colheads{position:sticky;top:0;z-index:4;height:26px;margin-top:-26px;display:grid;grid-template-columns:repeat(9,118px);background:var(--header);border-bottom:1px solid #bbb}.colheads div{display:flex;align-items:center;justify-content:center;border-right:1px solid #ccc;color:#555;font-size:12px}.rowheads{position:absolute;top:0;left:0;width:48px;background:var(--header);border-right:1px solid #bbb}.rowheads div{height:26px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #ddd;color:#666;font-size:12px}.content{width:min(1062px,calc(100vw - 90px));padding:26px 0 80px;position:relative;z-index:2}
+.section{margin:0 0 26px;background:#fff;border:1px solid #a8a8a8}.section-title{background:var(--excel);color:#fff;padding:8px 10px;font-weight:700}.grid2{display:grid;grid-template-columns:180px 1fr}.cell-label,.cell-value{min-height:38px;border-bottom:1px solid var(--grid);border-right:1px solid var(--grid);padding:8px 10px;display:flex;align-items:center}.cell-label{background:#f7f7f7;font-weight:600}.cell-value{background:#fff}.btn{height:32px;border:1px solid #8a8a8a;background:#fff;color:#222;padding:0 14px;font-weight:600}.btn.primary{background:var(--excel);color:#fff;border-color:var(--excel-dark)}.btn.secondary{background:#f5f5f5}.btn:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.hidden{display:none!important}input,select,textarea{border:1px solid #a6a6a6;background:#fff;padding:6px 8px;color:#222}input,select{height:32px;min-width:180px}textarea{width:100%;min-height:62px;resize:vertical}input:focus,select:focus,textarea:focus{outline:2px solid #8cc6a8;outline-offset:-1px;border-color:var(--excel)}
+.code{font-family:Consolas,monospace;font-weight:700;letter-spacing:.14em;font-size:22px;color:var(--excel-dark)}.notice{padding:9px 10px;background:#f7f7f7;border-left:4px solid #999;color:#555}.notice.good{border-left-color:var(--excel);background:var(--excel-soft)}.notice.danger{border-left-color:var(--danger);background:#fde8e8;color:#8d1111;font-weight:700}.table{width:100%;border-collapse:collapse;background:#fff}.table th,.table td{border:1px solid var(--grid);padding:8px 10px;text-align:left;height:36px}.table th{background:#f3f3f3}.online{color:var(--excel);font-weight:700}.offline{color:#999}.hosttag{display:inline-block;margin-left:7px;padding:1px 6px;background:#e6f2ea;border:1px solid #b8d7c5;color:var(--excel-dark);font-size:11px}
+.metricbar{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--grid)}.metric{min-height:74px;border-right:1px solid var(--grid);padding:10px}.metric:last-child{border-right:0}.metric .k{font-size:12px;color:#666;margin-bottom:5px}.metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}.metric.danger .v{color:var(--danger)}.keyword{font-size:28px;font-weight:700}.turnbox{padding:12px 10px;background:#fafafa;border-bottom:1px solid var(--grid)}.turn-main{font-size:20px;font-weight:700}.turn-time{font-family:Consolas,monospace;font-size:26px;font-weight:700;margin-left:10px}.turn-time.danger{color:var(--danger)}
+.notes-wrap{border-top:1px solid var(--grid)}.notes-title{padding:8px 10px;background:#f3f3f3;border-bottom:1px solid var(--grid);font-weight:700}.notes-list{height:280px;overflow:auto;background:#fff}.note-row{display:grid;grid-template-columns:70px 70px 100px 1fr;border-bottom:1px solid var(--grid);min-height:42px}.note-row>div{padding:9px 10px;border-right:1px solid var(--grid)}.note-row .time{color:#777;font-family:Consolas,monospace}.note-row .cycle{text-align:center;color:#555}.note-row .name{font-weight:700}.note-row.mine{background:#f3faf6}.note-row.empty{display:block;padding:22px;color:#777;text-align:center}.composer{display:grid;grid-template-columns:1fr 100px;gap:8px;padding:10px;background:#fafafa;border-top:1px solid var(--grid)}.composer-status{padding:7px 10px;background:#fff;border-top:1px solid var(--grid);color:#666}.composer-status.active{color:var(--excel-dark);font-weight:700;background:var(--excel-soft)}
+.vote-grid{display:grid;gap:0;border-top:1px solid var(--grid);border-left:1px solid var(--grid)}.vote{min-height:52px;background:#fff;border:0;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);font-weight:600}.vote:hover{background:var(--excel-soft)}.big-result{font-size:24px;font-weight:700;margin-bottom:10px}.result-line{padding:8px 0;border-bottom:1px solid #eee}.sheet-tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(1450px,100%);height:34px;background:#f4f4f4;border-top:1px solid #bbb;display:flex;align-items:flex-end;padding-left:58px;z-index:10}.sheet-tab{height:32px;padding:8px 20px;background:#fff;border-right:1px solid #ccc;color:#555}.sheet-tab.active{color:var(--excel);font-weight:700;border-bottom:3px solid var(--excel)}
+@media(max-width:800px){.sheet{padding-left:36px}.rowheads{width:36px}.content{width:calc(100vw - 58px)}.grid2{grid-template-columns:120px 1fr}.metricbar{grid-template-columns:1fr 1fr}.colheads{grid-template-columns:repeat(9,96px)}.sheet{background-size:96px 26px}.toolbar{overflow:hidden}.menu{gap:13px}.note-row{grid-template-columns:60px 52px 76px 1fr}.composer{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="titlebar"><span class="filename">Weekly_Coordination_Log_Q3.xlsx</span><span class="status">AutoSaved</span></div>
-  <div class="ribbon">
-    <div class="menu"><span>파일</span><span>홈</span><span>삽입</span><span>데이터</span><span>검토</span><span>보기</span></div>
-    <div class="toolbar"><button class="tool">붙여넣기</button><button class="tool">정렬</button><button class="tool">필터</button><button class="tool">조건부 서식</button><button class="tool">공유</button></div>
-  </div>
+  <div class="titlebar"><span>Weekly_Coordination_Log_Q3.xlsx</span><span class="status">AutoSaved</span></div>
+  <div class="ribbon"><div class="menu"><span>파일</span><span>홈</span><span>삽입</span><span>데이터</span><span>검토</span><span>보기</span></div><div class="toolbar"><button class="tool">붙여넣기</button><button class="tool">정렬</button><button class="tool">필터</button><button class="tool">조건부 서식</button><button class="tool">공유</button></div></div>
   <div class="formula"><div class="namebox">A1</div><div class="fx">fx</div><div class="formulabox">Weekly Coordination / Shared Notes</div></div>
   <main class="sheet">
-    <div class="colheads"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div><div>G</div><div>H</div></div>
+    <div class="colheads"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div><div>G</div><div>H</div><div>I</div></div>
     <div class="rowheads" id="rowheads"></div>
     <div class="content">
       <section id="home" class="section">
@@ -43,8 +40,8 @@
         <div class="grid2">
           <div class="cell-label">Session Code</div><div class="cell-value"><span id="roomCode" class="code"></span></div>
           <div class="cell-label">Share</div><div class="cell-value"><div class="actions"><button class="btn secondary" id="copyBtn">공유 링크 복사</button><span id="copyMsg"></span></div></div>
-          <div class="cell-label">Session Time</div><div class="cell-value"><select id="duration"><option value="3">3분</option><option value="5" selected>5분</option><option value="7">7분</option></select></div>
-          <div class="cell-label">Turn Rule</div><div class="cell-value">각자 30초 설명 작성 → 이후 전원 자유 작성</div>
+          <div class="cell-label">Session Time</div><div class="cell-value"><select id="duration"><option value="3">3분 · 2회전</option><option value="5" selected>5분 · 3회전</option><option value="7">7분 · 4회전</option></select></div>
+          <div class="cell-label">Turn Rule</div><div id="rulePreview" class="cell-value">5분 = 3회전 · 참가 인원에 따라 1회 작성 시간이 자동 계산됩니다.</div>
         </div>
         <table class="table" style="margin-top:12px"><thead><tr><th>이름</th><th>접속 상태</th><th>세션 포함</th></tr></thead><tbody id="players"></tbody></table>
         <div id="lobbyNotice" class="notice" style="margin:12px">최소 3명이 접속하면 시작할 수 있습니다.</div>
@@ -55,7 +52,8 @@
         <div class="section-title">Live Coordination</div>
         <div class="metricbar">
           <div class="metric"><div class="k">Participant</div><div id="meName" class="v"></div></div>
-          <div class="metric"><div class="k">Round</div><div id="round" class="v">1</div></div>
+          <div class="metric"><div class="k">Game</div><div id="round" class="v">1</div></div>
+          <div class="metric"><div class="k">Cycle</div><div id="cycleMetric" class="v">1/3</div></div>
           <div id="timerMetric" class="metric"><div class="k">Session Timer</div><div id="timer" class="v">05:00</div></div>
           <div class="metric"><div class="k">Status</div><div id="sessionStatus" class="v" style="font-size:18px">진행 중</div></div>
         </div>
@@ -63,171 +61,67 @@
           <div class="cell-label">My Keyword</div><div class="cell-value"><span id="secretWord" class="keyword">확인 중...</span></div>
           <div class="cell-label">Rule</div><div class="cell-value">본인 키워드는 직접 쓰지 말고 특징만 설명하세요. 한 명은 비슷한 다른 키워드를 받습니다.</div>
         </div>
-        <div class="turnbox"><span>Current Writer:</span> <span id="currentSpeaker" class="turn-main">-</span><span id="turnTimer" class="turn-time">00:30</span></div>
-        <div id="finalWarning" class="notice danger hidden" style="margin:12px">전체 세션 마감 30초 전입니다.</div>
-
+        <div class="turnbox"><span>Current Writer:</span> <span id="currentSpeaker" class="turn-main">-</span><span id="turnTimer" class="turn-time">--:--</span></div>
+        <div id="finalWarning" class="notice danger hidden" style="margin:12px">마감 30초 전입니다. 설명을 보고 투표할 사람을 정하세요.</div>
         <div class="notes-wrap">
           <div class="notes-title">Shared Description Log — 모든 참가자가 실시간으로 같이 봅니다</div>
           <div id="notesList" class="notes-list"><div class="note-row empty">아직 등록된 설명이 없습니다.</div></div>
           <div id="composerStatus" class="composer-status">작성 순서를 확인 중입니다.</div>
-          <div class="composer">
-            <textarea id="messageInput" maxlength="120" placeholder="키워드 자체는 쓰지 말고 설명만 입력하세요. (최대 120자)"></textarea>
-            <button id="sendBtn" class="btn primary">등록</button>
-          </div>
+          <div class="composer"><textarea id="messageInput" maxlength="120" placeholder="키워드 자체는 쓰지 말고 설명만 입력하세요. (최대 120자)"></textarea><button id="sendBtn" class="btn primary">등록</button></div>
         </div>
-
-        <table class="table" style="margin-top:12px"><thead><tr><th>순서</th><th>이름</th><th>배정 시간</th><th>상태</th></tr></thead><tbody id="turnTable"></tbody></table>
+        <table class="table" style="margin-top:12px"><thead><tr><th>회차</th><th>순번</th><th>이름</th><th>배정 시간</th><th>상태</th></tr></thead><tbody id="turnTable"></tbody></table>
         <div class="actions" style="padding:12px"><button id="voteNowBtn" class="btn secondary hidden">검토 단계로 이동</button></div>
       </section>
 
-      <section id="voteScreen" class="section hidden">
-        <div class="section-title">Review Check</div>
-        <div class="notice" style="margin:12px">다른 키워드를 받은 사람이라고 생각되는 참가자를 선택하세요. 투표 후 변경할 수 없습니다.</div>
-        <div id="voteGrid" class="vote-grid"></div>
-        <div id="voteStatus" class="notice hidden" style="margin:12px"></div>
-        <div class="actions" style="padding:0 12px 12px"><button id="revealBtn" class="btn secondary hidden">현재 투표로 결과 확인</button></div>
-      </section>
-
-      <section id="resultScreen" class="section hidden">
-        <div class="section-title">Review Summary</div>
-        <div id="resultBody" style="padding:14px"></div>
-        <div class="actions" style="padding:0 14px 14px"><button id="nextBtn" class="btn primary hidden">다음 세션 시작</button></div>
-      </section>
+      <section id="voteScreen" class="section hidden"><div class="section-title">Review Check</div><div class="notice" style="margin:12px">다른 키워드를 받은 사람이라고 생각되는 참가자를 선택하세요.</div><div id="voteGrid" class="vote-grid"></div><div id="voteStatus" class="notice hidden" style="margin:12px"></div><div class="actions" style="padding:0 12px 12px"><button id="revealBtn" class="btn secondary hidden">현재 투표로 결과 확인</button></div></section>
+      <section id="resultScreen" class="section hidden"><div class="section-title">Review Summary</div><div id="resultBody" style="padding:14px"></div><div class="actions" style="padding:0 14px 14px"><button id="nextBtn" class="btn primary hidden">다음 세션 시작</button></div></section>
     </div>
   </main>
   <div class="sheet-tabs"><div class="sheet-tab active">Overview</div><div class="sheet-tab">Participants</div><div class="sheet-tab">Shared Notes</div><div class="sheet-tab">Review</div></div>
 </div>
-
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket=io();
-const NAMES=["지니","윤정","수히","아름","정하"];
+const ROUND_COUNTS={3:2,5:3,7:4};
 let roomCode=null,myName=null,hostName=null,currentRoom=null,timerId=null,clockOffset=0,myKeyword="";
 const $=id=>document.getElementById(id);
-
-$("rowheads").innerHTML=Array.from({length:46},(_,i)=>`<div>${i+1}</div>`).join("");
+$("rowheads").innerHTML=Array.from({length:50},(_,i)=>`<div>${i+1}</div>`).join("");
 function show(id){["home","lobby","game","voteScreen","resultScreen"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 function errorMsg(msg){alert(msg)}
 function serverNow(){return Date.now()+clockOffset}
 function fmtTime(ms){const d=new Date(ms);return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`}
+function escapeHtml(v){return String(v).replace(/[&<>'\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'\"':"&quot;"}[c]))}
+function updateRulePreview(){const d=Number($("duration").value),cycles=ROUND_COUNTS[d],count=currentRoom?currentRoom.players.filter(p=>p.connected).length:0;const sec=count>=3?Math.max(5,Math.floor(d*60/(count*cycles))):null;$("rulePreview").textContent=sec?`${d}분 = ${cycles}회전 · ${count}명 기준 1회 약 ${sec}초`:`${d}분 = ${cycles}회전 · 참가 인원에 따라 1회 작성 시간이 자동 계산됩니다.`}
 
 const params=new URLSearchParams(location.search);if(params.get("room"))$("code").value=params.get("room").toUpperCase();
-
+$("duration").addEventListener("change",updateRulePreview);
 $("createBtn").onclick=()=>{const name=$("name").value;if(!name)return errorMsg("이름을 선택하세요.");socket.emit("room:create",{name},res=>{if(!res.ok)return errorMsg(res.error);enterRoom(res)})};
 $("joinBtn").onclick=()=>{const name=$("name").value,code=$("code").value.trim().toUpperCase();if(!name)return errorMsg("이름을 선택하세요.");if(!code)return errorMsg("방 코드를 입력하세요.");socket.emit("room:join",{name,code},res=>{if(!res.ok)return errorMsg(res.error);enterRoom(res)})};
 function enterRoom(res){roomCode=res.code;myName=res.name;hostName=res.hostName;history.replaceState(null,"",`?room=${roomCode}`);$("roomCode").textContent=roomCode;$("meName").textContent=myName;show("lobby")}
-
 $("copyBtn").onclick=async()=>{const url=`${location.origin}${location.pathname}?room=${roomCode}`;try{await navigator.clipboard.writeText(url);$("copyMsg").textContent="복사 완료"}catch{prompt("이 링크를 복사하세요.",url)}};
 $("startBtn").onclick=()=>socket.emit("game:start",{code:roomCode,durationMinutes:Number($("duration").value)});
 $("nextBtn").onclick=()=>socket.emit("game:start",{code:roomCode,durationMinutes:Number($("duration").value)});
 $("voteNowBtn").onclick=()=>socket.emit("game:voteNow",{code:roomCode});
 $("revealBtn").onclick=()=>socket.emit("game:revealVotes",{code:roomCode});
-$("sendBtn").onclick=sendMessage;
-$("messageInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}});
+$("sendBtn").onclick=sendMessage;$("messageInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}});
+function sendMessage(){const text=$("messageInput").value.trim();if(!text)return;socket.emit("message:send",{code:roomCode,text},res=>{if(!res.ok)return errorMsg(res.error);$("messageInput").value=""})}
 
-function sendMessage(){const text=$("messageInput").value.trim();if(!text)return;socket.emit("message:send",{code:roomCode,text},res=>{if(!res.ok)return errorMsg(res.error);$("messageInput").value="";$("messageInput").focus()})}
-
-socket.on("room:update",room=>{
-  currentRoom=room;roomCode=room.code;hostName=room.hostName;clockOffset=(room.serverNow||Date.now())-Date.now();
-  $("roomCode").textContent=room.code;renderPlayers(room);renderHostControls(room);
-  if(room.status==="lobby"){show("lobby");stopTimer()}
-  else if(room.status==="playing"){show("game");renderGame(room);startTimer()}
-  else if(room.status==="voting"){stopTimer();show("voteScreen");renderVotes(room)}
-  else if(room.status==="result"){stopTimer();show("resultScreen");renderResult(room)}
-});
-
+socket.on("room:update",room=>{currentRoom=room;roomCode=room.code;hostName=room.hostName;clockOffset=(room.serverNow||Date.now())-Date.now();$("roomCode").textContent=room.code;renderPlayers(room);renderHostControls(room);updateRulePreview();if(room.status==="lobby"){show("lobby");stopTimer()}else if(room.status==="playing"){show("game");renderGame(room);startTimer()}else if(room.status==="voting"){stopTimer();show("voteScreen");renderVotes(room)}else if(room.status==="result"){stopTimer();show("resultScreen");renderResult(room)}});
 socket.on("keyword:reveal",data=>{myKeyword=data.keyword;$("round").textContent=data.round;$("secretWord").textContent=data.keyword});
-socket.on("timer:ended",()=>stopTimer());
-socket.on("error:message",errorMsg);
-socket.on("session:replaced",()=>{alert("같은 이름으로 다른 PC에서 접속해 현재 세션이 종료됐습니다.");location.href=location.pathname});
+socket.on("timer:ended",()=>stopTimer());socket.on("error:message",errorMsg);socket.on("session:replaced",()=>{alert("같은 이름으로 다른 PC에서 접속해 현재 세션이 종료됐습니다.");location.href=location.pathname});
 
-function renderPlayers(room){
-  $("players").innerHTML=room.players.map(p=>`<tr><td>${p.name}${p.name===room.hostName?'<span class="hosttag">담당</span>':''}</td><td class="${p.connected?'online':'offline'}">${p.connected?'접속':'대기'}</td><td>${p.connected?'포함 예정':'-'}</td></tr>`).join("");
-  const count=room.players.filter(p=>p.connected).length;
-  $("lobbyNotice").className=`notice ${count>=3?'good':''}`;
-  $("lobbyNotice").textContent=count>=3?`${count}명 접속 완료. 담당자가 세션을 시작할 수 있습니다.`:`현재 ${count}명 접속. 최소 3명이 필요합니다.`;
-}
+function renderPlayers(room){$("players").innerHTML=room.players.map(p=>`<tr><td>${p.name}${p.name===room.hostName?'<span class="hosttag">담당</span>':''}</td><td class="${p.connected?'online':'offline'}">${p.connected?'접속':'대기'}</td><td>${p.connected?'포함 예정':'-'}</td></tr>`).join("");const count=room.players.filter(p=>p.connected).length;$("lobbyNotice").className=`notice ${count>=3?'good':''}`;$("lobbyNotice").textContent=count>=3?`${count}명 접속 완료. 담당자가 세션을 시작할 수 있습니다.`:`현재 ${count}명 접속. 최소 3명이 필요합니다.`}
+function renderHostControls(room){const isHost=myName===room.hostName,count=room.players.filter(p=>p.connected).length;$("startBtn").classList.toggle("hidden",!isHost);$("startBtn").disabled=count<3;$("duration").disabled=!isHost;$("voteNowBtn").classList.toggle("hidden",!isHost);$("revealBtn").classList.toggle("hidden",!isHost);$("nextBtn").classList.toggle("hidden",!isHost)}
 
-function renderHostControls(room){
-  const isHost=myName===room.hostName,count=room.players.filter(p=>p.connected).length;
-  $("startBtn").classList.toggle("hidden",!isHost);$("startBtn").disabled=count<3;
-  $("duration").disabled=!isHost;
-  $("voteNowBtn").classList.toggle("hidden",!isHost);$("revealBtn").classList.toggle("hidden",!isHost);$("nextBtn").classList.toggle("hidden",!isHost);
-}
-
-function getClientTurnState(room){
-  if(!room.startedAt)return{phase:"idle",currentSpeaker:null,index:-1,remaining:0};
-  const elapsed=Math.max(0,Math.floor((serverNow()-room.startedAt)/1000));
-  const index=Math.floor(elapsed/room.turnSeconds);
-  if(index<room.turnOrder.length)return{phase:"turns",currentSpeaker:room.turnOrder[index],index,remaining:room.turnSeconds-(elapsed%room.turnSeconds)};
-  return{phase:"free",currentSpeaker:null,index:room.turnOrder.length,remaining:0};
-}
-
-function renderGame(room){
-  $("meName").textContent=myName||"-";$("round").textContent=room.round;
-  if(myKeyword)$("secretWord").textContent=myKeyword;
-  renderNotes(room.messages||[]);renderTurnTable(room);updateComposer(room);
-}
-
-function renderNotes(messages){
-  const box=$("notesList");
-  if(!messages.length){box.innerHTML='<div class="note-row empty">아직 등록된 설명이 없습니다. 현재 작성자의 입력이 여기에 실시간으로 표시됩니다.</div>';return}
-  const prevBottom=box.scrollHeight-box.scrollTop-box.clientHeight<45;
-  box.innerHTML=messages.map(m=>`<div class="note-row ${m.name===myName?'mine':''}"><div class="time">${fmtTime(m.at)}</div><div class="name">${escapeHtml(m.name)}</div><div>${escapeHtml(m.text)}</div></div>`).join("");
-  if(prevBottom)box.scrollTop=box.scrollHeight;
-}
-function escapeHtml(v){return String(v).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]))}
-
-function renderTurnTable(room){
-  const st=getClientTurnState(room);
-  $("turnTable").innerHTML=room.turnOrder.map((name,i)=>{
-    const status=i<st.index?"완료":i===st.index&&st.phase==="turns"?"작성 중":st.phase==="free"?"완료":"대기";
-    return `<tr ${status==="작성 중"?'style="background:#edf7f1"':''}><td>${i+1}</td><td>${name}</td><td>30초</td><td>${status}</td></tr>`;
-  }).join("");
-}
-
-function updateComposer(room){
-  const st=getClientTurnState(room),canWrite=st.phase==="free"||(st.phase==="turns"&&st.currentSpeaker===myName);
-  $("messageInput").disabled=!canWrite;$("sendBtn").disabled=!canWrite;
-  if(st.phase==="turns"){
-    $("currentSpeaker").textContent=st.currentSpeaker;
-    $("turnTimer").textContent=`00:${String(st.remaining).padStart(2,"0")}`;
-    $("turnTimer").classList.toggle("danger",st.remaining<=5);
-    $("sessionStatus").textContent="순차 작성";
-    $("composerStatus").className=`composer-status ${canWrite?'active':''}`;
-    $("composerStatus").textContent=canWrite?`지금 내 차례입니다. ${st.remaining}초 안에 설명을 입력해 등록하세요.`:`${st.currentSpeaker} 님 작성 중 — 등록되는 설명을 모두가 실시간으로 볼 수 있습니다.`;
-  }else{
-    $("currentSpeaker").textContent="자유 작성";$("turnTimer").textContent="--:--";$("turnTimer").classList.remove("danger");$("sessionStatus").textContent="자유 토론";
-    $("composerStatus").className="composer-status active";$("composerStatus").textContent="순차 작성이 끝났습니다. 이제 모든 참가자가 자유롭게 설명을 추가할 수 있습니다.";
-  }
-  renderTurnTable(room);
-}
-
-function startTimer(){
-  if(timerId)return;
-  const tick=()=>{
-    if(!currentRoom||currentRoom.status!=="playing")return;
-    const left=Math.max(0,currentRoom.endsAt-serverNow()),total=Math.ceil(left/1000),m=String(Math.floor(total/60)).padStart(2,"0"),s=String(total%60).padStart(2,"0");
-    $("timer").textContent=`${m}:${s}`;$("timerMetric").classList.toggle("danger",total<=30);$("finalWarning").classList.toggle("hidden",total>30||total<=0);
-    updateComposer(currentRoom);
-  };
-  tick();timerId=setInterval(tick,250);
-}
+function getClientTurnState(room){if(!room.startedAt||!room.turnSeconds)return{phase:"idle",currentSpeaker:null,index:-1,remaining:0,cycle:0};const elapsed=Math.max(0,Math.floor((serverNow()-room.startedAt)/1000));const index=Math.floor(elapsed/room.turnSeconds),playerCount=Math.max(1,room.baseOrder.length);if(index<room.turnOrder.length)return{phase:"turns",currentSpeaker:room.turnOrder[index],index,remaining:room.turnSeconds-(elapsed%room.turnSeconds),cycle:Math.floor(index/playerCount)+1};return{phase:"final",currentSpeaker:null,index:room.turnOrder.length,remaining:0,cycle:room.roundCount}}
+function renderGame(room){$("meName").textContent=myName||"-";$("round").textContent=room.round;if(myKeyword)$("secretWord").textContent=myKeyword;renderNotes(room.messages||[]);updateComposer(room)}
+function renderNotes(messages){const box=$("notesList");if(!messages.length){box.innerHTML='<div class="note-row empty">아직 등록된 설명이 없습니다. 현재 작성자의 입력이 여기에 실시간으로 표시됩니다.</div>';return}const prevBottom=box.scrollHeight-box.scrollTop-box.clientHeight<45;box.innerHTML=messages.map(m=>`<div class="note-row ${m.name===myName?'mine':''}"><div class="time">${fmtTime(m.at)}</div><div class="cycle">${m.cycle}회</div><div class="name">${escapeHtml(m.name)}</div><div>${escapeHtml(m.text)}</div></div>`).join("");if(prevBottom)box.scrollTop=box.scrollHeight}
+function renderTurnTable(room){const st=getClientTurnState(room),playerCount=Math.max(1,room.baseOrder.length);$("turnTable").innerHTML=room.turnOrder.map((name,i)=>{const cycle=Math.floor(i/playerCount)+1,pos=i%playerCount+1,status=i<st.index?"완료":i===st.index&&st.phase==="turns"?"작성 중":"대기";return `<tr ${status==="작성 중"?'style="background:#edf7f1"':''}><td>${cycle}/${room.roundCount}</td><td>${pos}</td><td>${name}</td><td>${room.turnSeconds}초</td><td>${status}</td></tr>`}).join("")}
+function updateComposer(room){const st=getClientTurnState(room),already=room.messages.some(m=>m.turnIndex===st.index),canWrite=st.phase==="turns"&&st.currentSpeaker===myName&&!already;$("messageInput").disabled=!canWrite;$("sendBtn").disabled=!canWrite;$("cycleMetric").textContent=st.phase==="turns"?`${st.cycle}/${room.roundCount}`:`${room.roundCount}/${room.roundCount}`;if(st.phase==="turns"){$("currentSpeaker").textContent=st.currentSpeaker;$("turnTimer").textContent=`00:${String(st.remaining).padStart(2,"0")}`;$("turnTimer").classList.toggle("danger",st.remaining<=5);$("sessionStatus").textContent=`${st.cycle}회전 진행`;$("composerStatus").className=`composer-status ${canWrite?'active':''}`;if(st.currentSpeaker===myName&&already)$("composerStatus").textContent="이번 차례 설명을 등록했습니다. 다음 차례를 기다리세요.";else $("composerStatus").textContent=canWrite?`지금 내 차례입니다. ${st.remaining}초 안에 설명을 1개 등록하세요.`:`${st.currentSpeaker} 님 작성 중 — 등록되는 설명을 모두가 실시간으로 볼 수 있습니다.`}else{$("currentSpeaker").textContent="마감 준비";$("turnTimer").textContent="--:--";$("turnTimer").classList.remove("danger");$("sessionStatus").textContent="투표 준비";$("composerStatus").className="composer-status";$("composerStatus").textContent="모든 설명 회전이 끝났습니다. 남은 설명을 보고 투표를 준비하세요."}renderTurnTable(room)}
+function startTimer(){if(timerId)return;const tick=()=>{if(!currentRoom||currentRoom.status!=="playing")return;const left=Math.max(0,currentRoom.endsAt-serverNow()),total=Math.ceil(left/1000),m=String(Math.floor(total/60)).padStart(2,"0"),s=String(total%60).padStart(2,"0");$("timer").textContent=`${m}:${s}`;$("timerMetric").classList.toggle("danger",total<=30);$("finalWarning").classList.toggle("hidden",total>30||total<=0);updateComposer(currentRoom)};tick();timerId=setInterval(tick,250)}
 function stopTimer(){if(timerId)clearInterval(timerId);timerId=null}
-
-function renderVotes(room){
-  const active=room.roundPlayers||[],me=room.players.find(p=>p.name===myName),already=me?.voted;
-  $("voteGrid").style.gridTemplateColumns=`repeat(${Math.max(1,active.length)},minmax(0,1fr))`;
-  $("voteGrid").innerHTML=active.map(name=>`<button class="vote" data-name="${name}" ${already?'disabled':''}>${name}</button>`).join("");
-  document.querySelectorAll(".vote").forEach(btn=>btn.onclick=()=>{const target=btn.dataset.name;if(!confirm(`${target} 님에게 투표할까요?`))return;socket.emit("vote:submit",{code:roomCode,target},res=>{if(!res.ok)errorMsg(res.error)})});
-  const count=room.players.filter(p=>active.includes(p.name)&&p.voted).length;$("voteStatus").classList.remove("hidden");$("voteStatus").textContent=`현재 ${count}/${active.length}명 투표 완료`;
-}
-
-function renderResult(room){
-  const r=room.results;if(!r)return;
-  const ranking=Object.entries(r.counts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`<div class="result-line">${name} — ${count}표</div>`).join("");
-  $("resultBody").innerHTML=`<div class="big-result">${r.caught?'다른 키워드 참가자를 찾았습니다.':'다른 키워드 참가자가 살아남았습니다.'}</div><div class="result-line"><b>다른 키워드 참가자:</b> ${r.liar}</div><div class="result-line"><b>공통 키워드:</b> ${r.commonWord}</div><div class="result-line"><b>다른 키워드:</b> ${r.liarWord}</div><div style="margin-top:10px">${ranking}</div>`;
-}
+function renderVotes(room){const active=room.roundPlayers||[],me=room.players.find(p=>p.name===myName),already=me?.voted;$("voteGrid").style.gridTemplateColumns=`repeat(${Math.max(1,active.length)},minmax(0,1fr))`;$("voteGrid").innerHTML=active.map(name=>`<button class="vote" data-name="${name}" ${already?'disabled':''}>${name}</button>`).join("");document.querySelectorAll(".vote").forEach(btn=>btn.onclick=()=>{const target=btn.dataset.name;if(!confirm(`${target} 님에게 투표할까요?`))return;socket.emit("vote:submit",{code:roomCode,target},res=>{if(!res.ok)errorMsg(res.error)})});const count=room.players.filter(p=>active.includes(p.name)&&p.voted).length;$("voteStatus").classList.remove("hidden");$("voteStatus").textContent=`현재 ${count}/${active.length}명 투표 완료`}
+function renderResult(room){const r=room.results;if(!r)return;const ranking=Object.entries(r.counts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`<div class="result-line">${name} — ${count}표</div>`).join("");$("resultBody").innerHTML=`<div class="big-result">${r.caught?'다른 키워드 참가자를 찾았습니다.':'다른 키워드 참가자가 살아남았습니다.'}</div><div class="result-line"><b>다른 키워드 참가자:</b> ${r.liar}</div><div class="result-line"><b>공통 키워드:</b> ${r.commonWord}</div><div class="result-line"><b>다른 키워드:</b> ${r.liarWord}</div><div style="margin-top:10px">${ranking}</div>`}
 </script>
 </body>
 </html>
