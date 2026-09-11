@@ -11,19 +11,32 @@ const PORT = process.env.PORT || 3000;
 const PLAYERS = ["지니", "윤정", "수히", "아름", "정하"];
 const ALLOWED_DURATIONS = [3, 5, 7];
 const TURN_SECONDS = 30;
-const WORDS = [
-  "마라탕","김밥","떡볶이","삼겹살","초밥","치킨","피자","냉면","붕어빵","라면",
-  "아이스크림","커피","샌드위치","햄버거","김치찌개","된장찌개","파스타","족발","회","카레",
-  "놀이공원","편의점","찜질방","피부과","영화관","공항","헬스장","PC방","카페","노래방",
-  "도서관","미용실","백화점","회사","학교","병원","한강","지하철","버스정류장","호텔",
-  "에어팟","우산","칫솔","리모컨","고데기","보조배터리","노트북","키보드","마우스","텀블러",
-  "향수","거울","지갑","볼펜","가위","스테이플러","헤드셋","충전기","안경","쿠션",
-  "의사","선생님","경찰","승무원","유튜버","아이돌","배우","요리사","변호사","디자이너",
-  "개발자","간호사","사진작가","택배기사","운동선수","기자","작가","미용사","바리스타","마케터",
-  "회식","야근","퇴근","월급날","점심시간","회의","연차","출장","보고서","메신저",
-  "복사기","회의실","사원증","엘리베이터","탕비실","출근","지각","휴가","인수인계","워크숍",
-  "넷플릭스","유튜브","인스타그램","카카오톡","배달앱","택시","사진","셀카","여행","데이트",
-  "캠핑","등산","수영","러닝","볼링","축구","야구","농구","게임","쇼핑"
+const MAX_MESSAGE_LENGTH = 120;
+
+const WORD_PAIRS = [
+  ["커피", "녹차"], ["떡볶이", "라볶이"], ["삼겹살", "목살"], ["초밥", "김밥"],
+  ["치킨", "피자"], ["냉면", "막국수"], ["붕어빵", "호떡"], ["라면", "우동"],
+  ["아이스크림", "빙수"], ["햄버거", "샌드위치"], ["김치찌개", "된장찌개"], ["파스타", "리조또"],
+  ["족발", "보쌈"], ["마라탕", "훠궈"], ["카레", "짜장"], ["놀이공원", "워터파크"],
+  ["편의점", "마트"], ["찜질방", "사우나"], ["피부과", "성형외과"], ["영화관", "공연장"],
+  ["공항", "기차역"], ["헬스장", "필라테스"], ["PC방", "노래방"], ["카페", "베이커리"],
+  ["도서관", "서점"], ["미용실", "네일샵"], ["백화점", "아울렛"], ["학교", "학원"],
+  ["병원", "약국"], ["한강", "공원"], ["지하철", "버스"], ["호텔", "펜션"],
+  ["에어팟", "헤드셋"], ["우산", "우비"], ["칫솔", "치실"], ["리모컨", "마우스"],
+  ["고데기", "드라이기"], ["보조배터리", "충전기"], ["노트북", "태블릿"], ["키보드", "마우스"],
+  ["텀블러", "물병"], ["향수", "디퓨저"], ["거울", "카메라"], ["지갑", "카드지갑"],
+  ["볼펜", "샤프"], ["가위", "커터칼"], ["스테이플러", "클립"], ["안경", "렌즈"],
+  ["의사", "간호사"], ["선생님", "강사"], ["경찰", "소방관"], ["승무원", "호텔리어"],
+  ["유튜버", "스트리머"], ["아이돌", "배우"], ["요리사", "바리스타"], ["변호사", "검사"],
+  ["디자이너", "마케터"], ["개발자", "기획자"], ["사진작가", "영상작가"], ["기자", "작가"],
+  ["회식", "워크숍"], ["야근", "주말근무"], ["퇴근", "점심시간"], ["월급날", "보너스"],
+  ["회의", "발표"], ["연차", "반차"], ["출장", "여행"], ["보고서", "기획서"],
+  ["메신저", "이메일"], ["복사기", "프린터"], ["회의실", "휴게실"], ["사원증", "명함"],
+  ["엘리베이터", "에스컬레이터"], ["탕비실", "구내식당"], ["출근", "등교"], ["지각", "결근"],
+  ["넷플릭스", "유튜브"], ["인스타그램", "틱톡"], ["카카오톡", "문자"], ["배달앱", "쇼핑앱"],
+  ["택시", "버스"], ["사진", "영상"], ["셀카", "증명사진"], ["캠핑", "글램핑"],
+  ["등산", "러닝"], ["수영", "서핑"], ["볼링", "당구"], ["축구", "농구"],
+  ["야구", "축구"], ["게임", "보드게임"], ["쇼핑", "장보기"], ["데이트", "소개팅"]
 ];
 
 const rooms = new Map();
@@ -50,7 +63,38 @@ function connectedNames(room) {
   return PLAYERS.filter(name => !!room.players[name]);
 }
 
+function pickWordPair() {
+  const selected = WORD_PAIRS[Math.floor(Math.random() * WORD_PAIRS.length)];
+  return Math.random() < 0.5
+    ? { commonWord: selected[0], liarWord: selected[1] }
+    : { commonWord: selected[1], liarWord: selected[0] };
+}
+
+function getTurnState(room, now = Date.now()) {
+  if (room.status !== "playing" || !room.startedAt) {
+    return { phase: "idle", currentSpeaker: null, turnIndex: -1, turnRemaining: 0 };
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((now - room.startedAt) / 1000));
+  const turnIndex = Math.floor(elapsedSeconds / TURN_SECONDS);
+  if (turnIndex < room.turnOrder.length) {
+    return {
+      phase: "turns",
+      currentSpeaker: room.turnOrder[turnIndex],
+      turnIndex,
+      turnRemaining: TURN_SECONDS - (elapsedSeconds % TURN_SECONDS)
+    };
+  }
+
+  return { phase: "free", currentSpeaker: null, turnIndex: room.turnOrder.length, turnRemaining: 0 };
+}
+
+function assignedKeyword(room, name) {
+  return name === room.liar ? room.liarWord : room.commonWord;
+}
+
 function roomSnapshot(room) {
+  const turnState = getTurnState(room);
   return {
     code: room.code,
     hostName: room.hostName,
@@ -67,6 +111,10 @@ function roomSnapshot(room) {
     turnSeconds: TURN_SECONDS,
     roundPlayers: room.roundPlayers || [],
     turnOrder: room.turnOrder || [],
+    messages: room.messages || [],
+    currentSpeaker: turnState.currentSpeaker,
+    phase: turnState.phase,
+    serverNow: Date.now(),
     results: room.results || null
   };
 }
@@ -83,12 +131,14 @@ function finishRound(room) {
   Object.values(room.votes).forEach(target => {
     if (Object.prototype.hasOwnProperty.call(counts, target)) counts[target] += 1;
   });
+
   const max = targets.length ? Math.max(...Object.values(counts)) : 0;
   const top = targets.filter(name => counts[name] === max);
   room.status = "result";
   room.results = {
     liar: room.liar,
-    word: room.word,
+    commonWord: room.commonWord,
+    liarWord: room.liarWord,
     counts,
     top,
     caught: top.length === 1 && top[0] === room.liar
@@ -114,6 +164,7 @@ app.use(express.static(path.join(__dirname, "public")));
 io.on("connection", socket => {
   socket.on("room:create", ({ name }, cb) => {
     if (!PLAYERS.includes(name)) return cb?.({ ok: false, error: "등록된 참가자 이름이 아닙니다." });
+
     const code = makeRoomCode();
     const room = {
       code,
@@ -121,13 +172,16 @@ io.on("connection", socket => {
       players: {},
       status: "lobby",
       round: 0,
-      word: null,
+      commonWord: null,
+      liarWord: null,
       liar: null,
       startedAt: null,
       endsAt: null,
       durationMinutes: 5,
       roundPlayers: [],
       turnOrder: [],
+      messages: [],
+      messageSeq: 0,
       votes: {},
       results: null
     };
@@ -154,12 +208,17 @@ io.on("connection", socket => {
     }
 
     const requested = Number(durationMinutes);
+    const words = pickWordPair();
+
     room.durationMinutes = ALLOWED_DURATIONS.includes(requested) ? requested : 5;
     room.roundPlayers = [...active];
     room.turnOrder = shuffle(active);
     room.round += 1;
-    room.word = WORDS[Math.floor(Math.random() * WORDS.length)];
+    room.commonWord = words.commonWord;
+    room.liarWord = words.liarWord;
     room.liar = active[Math.floor(Math.random() * active.length)];
+    room.messages = [];
+    room.messageSeq = 0;
     room.votes = {};
     room.results = null;
     room.status = "playing";
@@ -170,13 +229,52 @@ io.on("connection", socket => {
       const sid = room.players[name];
       const s = io.sockets.sockets.get(sid);
       if (!s) return;
-      s.emit("role:reveal", {
+      s.emit("keyword:reveal", {
         round: room.round,
-        isLiar: name === room.liar,
-        word: name === room.liar ? null : room.word
+        keyword: assignedKeyword(room, name)
       });
     });
 
+    broadcastRoom(room);
+  });
+
+  socket.on("message:send", ({ code, text }, cb) => {
+    const room = rooms.get(String(code || "").toUpperCase());
+    const name = socket.data.name;
+    if (!room || room.status !== "playing") {
+      return cb?.({ ok: false, error: "현재 작성 가능한 세션이 아닙니다." });
+    }
+    if (!room.roundPlayers.includes(name)) {
+      return cb?.({ ok: false, error: "이번 세션 참가자가 아닙니다." });
+    }
+
+    const clean = String(text || "").trim().replace(/\s+/g, " ");
+    if (!clean) return cb?.({ ok: false, error: "설명을 입력하세요." });
+    if (clean.length > MAX_MESSAGE_LENGTH) {
+      return cb?.({ ok: false, error: `${MAX_MESSAGE_LENGTH}자 이내로 입력하세요.` });
+    }
+
+    const turnState = getTurnState(room);
+    if (turnState.phase === "turns" && turnState.currentSpeaker !== name) {
+      return cb?.({ ok: false, error: `지금은 ${turnState.currentSpeaker} 님의 작성 차례입니다.` });
+    }
+
+    const keyword = assignedKeyword(room, name);
+    if (keyword && clean.replace(/\s/g, "").includes(keyword.replace(/\s/g, ""))) {
+      return cb?.({ ok: false, error: "자기 키워드 자체는 설명란에 입력할 수 없습니다." });
+    }
+
+    room.messageSeq += 1;
+    room.messages.push({
+      id: room.messageSeq,
+      name,
+      text: clean,
+      at: Date.now(),
+      phase: turnState.phase
+    });
+    if (room.messages.length > 100) room.messages = room.messages.slice(-100);
+
+    cb?.({ ok: true });
     broadcastRoom(room);
   });
 
@@ -245,12 +343,11 @@ function joinRoom(socket, room, name, cb) {
   broadcastRoom(room);
 
   if (room.status === "playing" && room.roundPlayers.includes(name)) {
-    socket.emit("role:reveal", {
+    socket.emit("keyword:reveal", {
       round: room.round,
-      isLiar: name === room.liar,
-      word: name === room.liar ? null : room.word
+      keyword: assignedKeyword(room, name)
     });
   }
 }
 
-server.listen(PORT, () => console.log(`Team Sync Sheet running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Weekly Coordination Sheet running on http://localhost:${PORT}`));
