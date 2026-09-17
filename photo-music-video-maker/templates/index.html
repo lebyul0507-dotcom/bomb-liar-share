@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>사진 + 음악 영상 만들기</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">ONLINE VIDEO MAKER</p>
+        <h1>사진 + 음악 → 영상</h1>
+        <p class="sub">사진을 순서대로 {{ seconds_per_image }}초씩 연결하고 음악을 넣어 9:16 MP4로 만듭니다. 설치 없이 브라우저에서 바로 사용합니다.</p>
+      </div>
+      <div class="spec">1080 × 1920 · 30fps · H.264</div>
+    </header>
+
+    <section class="card">
+      <div class="section-title">
+        <div><span>01</span><h2>사진</h2></div>
+        <strong id="imageCount">0장 · 0초</strong>
+      </div>
+      <label class="dropzone" id="imageDropzone">
+        <input id="imageInput" type="file" accept="image/*,.heic,.heif" multiple hidden />
+        <div class="drop-icon">＋</div>
+        <b>사진 여러 장 선택</b>
+        <small>JPG, PNG, WEBP, HEIC 지원 · 썸네일을 드래그해서 순서를 바꿀 수 있습니다.</small>
+      </label>
+      <div id="thumbs" class="thumbs"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div><span>02</span><h2>음악</h2></div>
+        <strong id="musicState">선택 안 됨</strong>
+      </div>
+      <label class="music-picker">
+        <input id="audioInput" type="file" accept="audio/*,.m4a,.aac,.flac,.ogg,.opus" hidden />
+        <span>♪</span>
+        <div>
+          <b id="musicName">음악 파일 선택</b>
+          <small>MP3, WAV, M4A, AAC 등 · 짧으면 반복, 길면 자동으로 잘립니다. · 전체 업로드 최대 {{ max_upload_mb }}MB</small>
+        </div>
+      </label>
+    </section>
+
+    <section class="summary card">
+      <div>
+        <small>사진당</small>
+        <b>{{ seconds_per_image }}초</b>
+      </div>
+      <div>
+        <small>비율</small>
+        <b>9:16</b>
+      </div>
+      <div>
+        <small>예상 길이</small>
+        <b id="durationText">0초</b>
+      </div>
+      <button id="renderBtn" disabled>영상 만들기</button>
+    </section>
+
+    <section id="progressCard" class="card progress-card hidden">
+      <div class="section-title">
+        <div><span>03</span><h2>렌더링</h2></div>
+        <strong id="progressValue">0%</strong>
+      </div>
+      <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+      <p id="progressMessage">작업을 준비하고 있습니다.</p>
+    </section>
+
+    <section id="resultCard" class="card result-card hidden">
+      <div class="section-title">
+        <div><span>04</span><h2>완성</h2></div>
+        <strong>MP4</strong>
+      </div>
+      <div class="result-grid">
+        <video id="preview" controls playsinline></video>
+        <div class="result-actions">
+          <h3>영상이 완성되었습니다.</h3>
+          <p>완성 영상은 서버에서 1시간 뒤 자동 삭제됩니다. 필요한 영상은 바로 다운로드해 주세요.</p>
+          <a id="downloadBtn" class="download-btn" href="#">MP4 다운로드</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>window.SECONDS_PER_IMAGE = {{ seconds_per_image }}; window.MAX_UPLOAD_MB = {{ max_upload_mb }};</script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
