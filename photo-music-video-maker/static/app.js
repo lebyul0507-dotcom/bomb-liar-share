@@ -16,6 +16,7 @@ const resultCard = document.getElementById('resultCard');
 const preview = document.getElementById('preview');
 const downloadBtn = document.getElementById('downloadBtn');
 
+const MAX_IMAGES = 10;
 let items = [];
 let audioFile = null;
 let uid = 0;
@@ -34,7 +35,7 @@ function formatSeconds(sec) {
 
 function updateSummary() {
   const duration = items.length * window.SECONDS_PER_IMAGE;
-  imageCount.textContent = `${items.length}장 · ${formatSeconds(duration)}`;
+  imageCount.textContent = `${items.length}/${MAX_IMAGES}장 · ${formatSeconds(duration)}`;
   durationText.textContent = formatSeconds(duration);
   renderBtn.disabled = items.length === 0 || !audioFile;
 }
@@ -54,8 +55,20 @@ function sortItemsByFilename() {
 }
 
 function addFiles(files) {
-  [...files].forEach(file => {
-    if (!isSupportedImage(file)) return;
+  const supported = [...files].filter(isSupportedImage);
+  if (!supported.length) return;
+
+  const remaining = MAX_IMAGES - items.length;
+  if (remaining <= 0) {
+    alert(`사진은 최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다.`);
+    return;
+  }
+
+  if (supported.length > remaining) {
+    alert(`사진은 최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다. ${remaining}장만 추가됩니다.`);
+  }
+
+  supported.slice(0, remaining).forEach(file => {
     items.push({ id: ++uid, file, url: URL.createObjectURL(file) });
   });
   sortItemsByFilename();
@@ -186,12 +199,17 @@ async function poll(jobId) {
     setProgress(data.progress, data.message);
     if (data.status === 'done') return data;
     if (data.status === 'error') throw new Error(data.message || '영상 생성에 실패했습니다.');
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 500));
   }
 }
 
 renderBtn.addEventListener('click', async () => {
   if (!items.length || !audioFile) return;
+  if (items.length > MAX_IMAGES) {
+    alert(`사진은 최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다.`);
+    return;
+  }
+
   const totalBytes = items.reduce((sum, item) => sum + item.file.size, 0) + audioFile.size;
   const maxBytes = (window.MAX_UPLOAD_MB || 150) * 1024 * 1024;
   if (totalBytes > maxBytes) {
