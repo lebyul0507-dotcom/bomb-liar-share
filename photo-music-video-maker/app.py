@@ -31,11 +31,13 @@ SECONDS_PER_IMAGE = 3
 MAX_IMAGES = 10
 MAX_UPLOAD_MB = 150
 OUTPUT_TTL_SECONDS = 60 * 60
+REQUEST_TTL_SECONDS = 10 * 60
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 
 jobs: dict[str, dict] = {}
+request_jobs: dict[str, tuple[str, float]] = {}
 jobs_lock = threading.Lock()
 
 
@@ -51,6 +53,13 @@ def get_job(job_id: str) -> dict | None:
         return dict(data) if data else None
 
 
+def cleanup_request_map(now: float | None = None) -> None:
+    now = now or time.time()
+    expired = [key for key, (_, created_at) in request_jobs.items() if now - created_at > REQUEST_TTL_SECONDS]
+    for key in expired:
+        request_jobs.pop(key, None)
+
+
 def cleanup_job_later(job_id: str, path: Path) -> None:
     def _cleanup() -> None:
         try:
@@ -58,6 +67,9 @@ def cleanup_job_later(job_id: str, path: Path) -> None:
         finally:
             with jobs_lock:
                 jobs.pop(job_id, None)
+                stale = [key for key, (mapped_job, _) in request_jobs.items() if mapped_job == job_id]
+                for key in stale:
+                    request_jobs.pop(key, None)
 
     timer = threading.Timer(OUTPUT_TTL_SECONDS, _cleanup)
     timer.daemon = True
@@ -78,6 +90,16 @@ def crop_cover(image: Image.Image, width: int = WIDTH, height: int = HEIGHT) -> 
         method=Image.Resampling.LANCZOS,
         centering=(0.5, 0.5),
     )
+
+
+def prepare_frame(src: Path, dst: Path) -> None:
+    with Image.open(src) as img:
+        orientation = img.getexif().get(274, 1)
+        if img.format == "JPEG" and img.mode == "RGB" and img.size == (WIDTH, HEIGHT) and orientation in (None, 1):
+            shutil.copyfile(src, dst)
+            return
+        frame = crop_cover(img)
+        frame.save(dst, format="JPEG", quality=88)
 
 
 def parse_ffmpeg_timecode(value: str) -> float:
@@ -141,11 +163,9 @@ def build_video(
         frame_paths: list[Path] = []
         for idx, src in enumerate(image_paths, start=1):
             try:
-                with Image.open(src) as img:
-                    frame = crop_cover(img)
-                    frame_path = workdir / f"frame_{idx:04d}.jpg"
-                    frame.save(frame_path, format="JPEG", quality=88)
-                    frame_paths.append(frame_path)
+                frame_path = workdir / f"frame_{idx:04d}.jpg"
+                prepare_frame(src, frame_path)
+                frame_paths.append(frame_path)
             except Exception as exc:
                 raise RuntimeError(f"{idx}번째 사진을 읽지 못했습니다: {src.name}\n{exc}") from exc
 
@@ -238,6 +258,18 @@ def health():
 
 @app.post("/api/render")
 def render_video():
+    client_request_id = (request.form.get("request_id") or "").strip()
+    if client_request_id:
+        with jobs_lock:
+            cleanup_request_map()
+            existing = request_jobs.get(client_request_id)
+            if existing:
+                existing_job_id = existing[0]
+                existing_job = jobs.get(existing_job_id)
+                if existing_job:
+                    return jsonify({"job_id": existing_job_id, "reused": True})
+                request_jobs.pop(client_request_id, None)
+
     images = request.files.getlist("images")
     audio = request.files.get("audio")
     order_raw = request.form.get("order", "[]")
@@ -297,6 +329,8 @@ def render_video():
                 "message": "작업을 시작합니다.",
                 "filename": None,
             }
+            if client_request_id:
+                request_jobs[client_request_id] = (job_id, time.time())
 
         thread = threading.Thread(
             target=build_video,
