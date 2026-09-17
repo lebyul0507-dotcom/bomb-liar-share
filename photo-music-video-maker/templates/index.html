@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">ONLINE VIDEO MAKER</p>
         <h1>사진 + 음악 → 영상</h1>
-        <p class="sub">사진을 순서대로 {{ seconds_per_image }}초씩 연결하고 음악을 넣어 9:16 MP4로 만듭니다. 설치 없이 브라우저에서 바로 사용합니다.</p>
+        <p class="sub">사진을 파일명 순서대로 {{ seconds_per_image }}초씩 연결하고 음악을 넣어 9:16 MP4로 만듭니다. 설치 없이 브라우저에서 바로 사용합니다.</p>
       </div>
       <div class="spec">1080 × 1920 · 30fps · H.264</div>
     </header>
@@ -25,8 +25,8 @@
       <label class="dropzone" id="imageDropzone">
         <input id="imageInput" type="file" accept="image/*,.heic,.heif" multiple hidden />
         <div class="drop-icon">＋</div>
-        <b>사진 여러 장 선택</b>
-        <small>JPG, PNG, WEBP, HEIC 지원 · 썸네일을 드래그해서 순서를 바꿀 수 있습니다.</small>
+        <b>사진 여러 장 선택 또는 드래그</b>
+        <small>JPG, PNG, WEBP, HEIC 지원 · 업로드하면 파일명 기준으로 자동 정렬됩니다. 이후 썸네일을 드래그해 순서를 바꿀 수도 있습니다.</small>
       </label>
       <div id="thumbs" class="thumbs"></div>
     </section>
@@ -36,12 +36,12 @@
         <div><span>02</span><h2>음악</h2></div>
         <strong id="musicState">선택 안 됨</strong>
       </div>
-      <label class="music-picker">
+      <label class="music-picker" id="musicDropzone">
         <input id="audioInput" type="file" accept="audio/*,.m4a,.aac,.flac,.ogg,.opus" hidden />
         <span>♪</span>
         <div>
-          <b id="musicName">음악 파일 선택</b>
-          <small>MP3, WAV, M4A, AAC 등 · 짧으면 반복, 길면 자동으로 잘립니다. · 전체 업로드 최대 {{ max_upload_mb }}MB</small>
+          <b id="musicName">음악 파일 선택 또는 여기로 드래그</b>
+          <small>MP3, WAV, M4A, AAC 등 · 클릭해서 선택하거나 음악 파일을 드래그해 넣을 수 있습니다. · 전체 업로드 최대 {{ max_upload_mb }}MB</small>
         </div>
       </label>
     </section>
