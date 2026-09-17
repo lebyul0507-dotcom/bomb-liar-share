@@ -7,6 +7,7 @@ const musicState = document.getElementById('musicState');
 const musicName = document.getElementById('musicName');
 const renderBtn = document.getElementById('renderBtn');
 const dropzone = document.getElementById('imageDropzone');
+const musicDropzone = document.getElementById('musicDropzone');
 const progressCard = document.getElementById('progressCard');
 const progressBar = document.getElementById('progressBar');
 const progressValue = document.getElementById('progressValue');
@@ -18,6 +19,11 @@ const downloadBtn = document.getElementById('downloadBtn');
 let items = [];
 let audioFile = null;
 let uid = 0;
+
+const filenameCollator = new Intl.Collator('ko-KR', {
+  numeric: true,
+  sensitivity: 'base'
+});
 
 function formatSeconds(sec) {
   if (sec < 60) return `${sec}초`;
@@ -38,12 +44,33 @@ function isSupportedImage(file) {
   return file.type.startsWith('image/') || name.endsWith('.heic') || name.endsWith('.heif');
 }
 
+function isSupportedAudio(file) {
+  const name = file.name.toLowerCase();
+  return file.type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|flac|ogg|opus)$/i.test(name);
+}
+
+function sortItemsByFilename() {
+  items.sort((a, b) => filenameCollator.compare(a.file.name, b.file.name));
+}
+
 function addFiles(files) {
   [...files].forEach(file => {
     if (!isSupportedImage(file)) return;
     items.push({ id: ++uid, file, url: URL.createObjectURL(file) });
   });
+  sortItemsByFilename();
   renderThumbs();
+}
+
+function setAudioFile(file) {
+  if (!file || !isSupportedAudio(file)) {
+    if (file) alert('지원되는 음악 파일을 넣어 주세요.');
+    return;
+  }
+  audioFile = file;
+  musicName.textContent = audioFile.name;
+  musicState.textContent = '선택 완료';
+  updateSummary();
 }
 
 function renderThumbs() {
@@ -53,9 +80,11 @@ function renderThumbs() {
     el.className = 'thumb';
     el.draggable = true;
     el.dataset.id = item.id;
+    el.title = item.file.name;
     el.innerHTML = `
       <img src="${item.url}" alt="${item.file.name.replaceAll('"', '&quot;')}">
       <span class="badge">${index + 1}</span>
+      <span class="filename">${item.file.name.replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</span>
       <button class="remove" type="button" aria-label="삭제">×</button>
     `;
     el.querySelector('.remove').addEventListener('click', e => {
@@ -103,15 +132,15 @@ imageInput.addEventListener('change', () => {
 });
 
 audioInput.addEventListener('change', () => {
-  audioFile = audioInput.files?.[0] || null;
-  if (audioFile) {
-    musicName.textContent = audioFile.name;
-    musicState.textContent = '선택 완료';
-  } else {
-    musicName.textContent = '음악 파일 선택';
+  const file = audioInput.files?.[0] || null;
+  if (file) setAudioFile(file);
+  else {
+    audioFile = null;
+    musicName.textContent = '음악 파일 선택 또는 여기로 드래그';
     musicState.textContent = '선택 안 됨';
+    updateSummary();
   }
-  updateSummary();
+  audioInput.value = '';
 });
 
 ['dragenter', 'dragover'].forEach(type => dropzone.addEventListener(type, e => {
@@ -123,6 +152,24 @@ audioInput.addEventListener('change', () => {
   dropzone.classList.remove('dragover');
 }));
 dropzone.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+
+['dragenter', 'dragover'].forEach(type => musicDropzone.addEventListener(type, e => {
+  e.preventDefault();
+  musicDropzone.classList.add('dragover');
+}));
+['dragleave', 'drop'].forEach(type => musicDropzone.addEventListener(type, e => {
+  e.preventDefault();
+  musicDropzone.classList.remove('dragover');
+}));
+musicDropzone.addEventListener('drop', e => {
+  const files = [...e.dataTransfer.files];
+  const file = files.find(isSupportedAudio);
+  if (!file) {
+    alert('음악 파일을 드래그해 넣어 주세요.');
+    return;
+  }
+  setAudioFile(file);
+});
 
 function setProgress(value, message) {
   const v = Math.max(0, Math.min(100, Number(value) || 0));
