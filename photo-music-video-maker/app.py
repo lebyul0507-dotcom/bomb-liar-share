@@ -28,6 +28,7 @@ WIDTH = 1080
 HEIGHT = 1920
 FPS = 30
 SECONDS_PER_IMAGE = 3
+MAX_IMAGES = 10
 MAX_UPLOAD_MB = 150
 OUTPUT_TTL_SECONDS = 60 * 60
 
@@ -79,16 +80,49 @@ def crop_cover(image: Image.Image, width: int = WIDTH, height: int = HEIGHT) -> 
     )
 
 
-def run_ffmpeg(cmd: list[str]) -> None:
-    proc = subprocess.run(
+def parse_ffmpeg_timecode(value: str) -> float:
+    try:
+        hh, mm, ss = value.strip().split(":")
+        return int(hh) * 3600 + int(mm) * 60 + float(ss)
+    except Exception:
+        return 0.0
+
+
+def run_ffmpeg_with_progress(cmd: list[str], job_id: str, total_duration: float) -> None:
+    proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        bufsize=1,
     )
-    if proc.returncode != 0:
-        tail = proc.stderr[-5000:] if proc.stderr else "Unknown FFmpeg error"
-        raise RuntimeError(tail)
+
+    try:
+        if proc.stdout:
+            for raw in proc.stdout:
+                line = raw.strip()
+                if line.startswith("out_time="):
+                    elapsed = min(total_duration, parse_ffmpeg_timecode(line.split("=", 1)[1]))
+                    ratio = 0.0 if total_duration <= 0 else elapsed / total_duration
+                    progress = min(97, 55 + int(ratio * 42))
+                    set_job(
+                        job_id,
+                        progress=progress,
+                        message=f"영상 인코딩 중... {elapsed:.1f}초 / {total_duration:.1f}초",
+                    )
+                elif line == "progress=end":
+                    break
+
+        stderr_output = proc.stderr.read() if proc.stderr else ""
+        return_code = proc.wait()
+        if return_code != 0:
+            tail = stderr_output[-5000:] if stderr_output else "Unknown FFmpeg error"
+            raise RuntimeError(tail)
+    finally:
+        if proc.stdout:
+            proc.stdout.close()
+        if proc.stderr:
+            proc.stderr.close()
 
 
 def build_video(
@@ -101,6 +135,7 @@ def build_video(
     workdir = Path(tempfile.mkdtemp(prefix=f"pmvm_{job_id}_"))
     try:
         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        total_images = len(image_paths)
         set_job(job_id, status="processing", progress=8, message="사진을 준비하고 있습니다.")
 
         frame_paths: list[Path] = []
@@ -109,13 +144,13 @@ def build_video(
                 with Image.open(src) as img:
                     frame = crop_cover(img)
                     frame_path = workdir / f"frame_{idx:04d}.jpg"
-                    frame.save(frame_path, format="JPEG", quality=92, optimize=True)
+                    frame.save(frame_path, format="JPEG", quality=88)
                     frame_paths.append(frame_path)
             except Exception as exc:
                 raise RuntimeError(f"{idx}번째 사진을 읽지 못했습니다: {src.name}\n{exc}") from exc
 
-            progress = 8 + int((idx / max(1, len(image_paths))) * 37)
-            set_job(job_id, progress=progress, message=f"사진 {idx}/{len(image_paths)} 처리 중")
+            progress = 8 + int((idx / max(1, total_images)) * 37)
+            set_job(job_id, progress=progress, message=f"사진 {idx}/{total_images} 처리 중")
 
         concat_file = workdir / "images.txt"
         with concat_file.open("w", encoding="utf-8") as f:
@@ -126,14 +161,16 @@ def build_video(
             last = str(frame_paths[-1]).replace("'", "'\\''")
             f.write(f"file '{last}'\n")
 
-        total_duration = len(frame_paths) * SECONDS_PER_IMAGE
-        set_job(job_id, progress=55, message="영상과 음악을 합성하고 있습니다.")
+        total_duration = total_images * SECONDS_PER_IMAGE
+        set_job(job_id, progress=55, message="영상 인코딩을 시작합니다.")
 
         cmd = [
             ffmpeg,
             "-y",
             "-hide_banner",
             "-loglevel", "error",
+            "-progress", "pipe:1",
+            "-nostats",
             "-f", "concat",
             "-safe", "0",
             "-i", str(concat_file),
@@ -146,9 +183,10 @@ def build_video(
             "-t", str(total_duration),
             "-vf", f"fps={FPS},format=yuv420p",
             "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "22",
-            "-threads", "1",
+            "-preset", "ultrafast",
+            "-tune", "stillimage",
+            "-crf", "24",
+            "-threads", "0",
             "-movflags", "+faststart",
         ]
 
@@ -158,14 +196,14 @@ def build_video(
                 "-map", "0:v:0",
                 "-map", "1:a:0",
                 "-c:a", "aac",
-                "-b:a", "160k",
+                "-b:a", "128k",
                 "-af", f"afade=t=out:st={fade_start:.3f}:d=0.8",
             ]
         else:
             cmd += ["-an"]
 
         cmd.append(str(output_path))
-        run_ffmpeg(cmd)
+        run_ffmpeg_with_progress(cmd, job_id, total_duration)
 
         set_job(
             job_id,
@@ -189,6 +227,7 @@ def index():
         "index.html",
         seconds_per_image=SECONDS_PER_IMAGE,
         max_upload_mb=MAX_UPLOAD_MB,
+        max_images=MAX_IMAGES,
     )
 
 
@@ -205,6 +244,9 @@ def render_video():
 
     if not images:
         return jsonify({"error": "사진을 1장 이상 선택해 주세요."}), 400
+
+    if len(images) > MAX_IMAGES:
+        return jsonify({"error": f"사진은 최대 {MAX_IMAGES}장까지 업로드할 수 있습니다."}), 400
 
     try:
         order = json.loads(order_raw)
