@@ -17,6 +17,8 @@ const preview = document.getElementById('preview');
 const downloadBtn = document.getElementById('downloadBtn');
 
 const MAX_IMAGES = 10;
+const TARGET_WIDTH = 1080;
+const TARGET_HEIGHT = 1920;
 let items = [];
 let audioFile = null;
 let uid = 0;
@@ -43,6 +45,10 @@ function updateSummary() {
 function isSupportedImage(file) {
   const name = file.name.toLowerCase();
   return file.type.startsWith('image/') || name.endsWith('.heic') || name.endsWith('.heif');
+}
+
+function isHeic(file) {
+  return /\.(heic|heif)$/i.test(file.name);
 }
 
 function isSupportedAudio(file) {
@@ -191,6 +197,105 @@ function setProgress(value, message) {
   if (message) progressMessage.textContent = message;
 }
 
+function canvasToBlob(canvas, type = 'image/jpeg', quality = 0.9) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('사진 최적화에 실패했습니다.')), type, quality);
+  });
+}
+
+async function optimizeImage(file) {
+  if (isHeic(file)) return file;
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    return file;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = TARGET_WIDTH;
+  canvas.height = TARGET_HEIGHT;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+
+  const srcRatio = bitmap.width / bitmap.height;
+  const dstRatio = TARGET_WIDTH / TARGET_HEIGHT;
+  let sx = 0;
+  let sy = 0;
+  let sw = bitmap.width;
+  let sh = bitmap.height;
+
+  if (srcRatio > dstRatio) {
+    sw = bitmap.height * dstRatio;
+    sx = (bitmap.width - sw) / 2;
+  } else if (srcRatio < dstRatio) {
+    sh = bitmap.width / dstRatio;
+    sy = (bitmap.height - sh) / 2;
+  }
+
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+  bitmap.close();
+
+  const blob = await canvasToBlob(canvas, 'image/jpeg', 0.9);
+  const base = file.name.replace(/\.[^.]+$/, '') || 'image';
+  return new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+}
+
+async function prepareUploadFiles() {
+  const prepared = [];
+  for (let i = 0; i < items.length; i++) {
+    const pct = 3 + Math.round(((i + 1) / items.length) * 12);
+    setProgress(pct, `사진 업로드 최적화 중... ${i + 1}/${items.length}`);
+    prepared.push(await optimizeImage(items[i].file));
+  }
+  return prepared;
+}
+
+function buildForm(preparedFiles, requestId) {
+  const form = new FormData();
+  preparedFiles.forEach((file, i) => form.append('images', file, file.name || items[i].file.name));
+  form.append('audio', audioFile, audioFile.name);
+  form.append('order', JSON.stringify(preparedFiles.map((_, i) => i)));
+  form.append('request_id', requestId);
+  return form;
+}
+
+async function sendRenderRequest(preparedFiles, requestId) {
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      if (attempt === 2) {
+        setProgress(18, '업로드 연결을 다시 시도하고 있습니다.');
+        await new Promise(r => setTimeout(r, 1200));
+      } else {
+        setProgress(16, '파일을 업로드하고 있습니다.');
+      }
+
+      const res = await fetch('/api/render', {
+        method: 'POST',
+        body: buildForm(preparedFiles, requestId)
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`서버 응답 오류 (${res.status})`);
+      }
+
+      if (!res.ok) throw new Error(data.error || '영상 생성 요청에 실패했습니다.');
+      return data;
+    } catch (err) {
+      lastError = err;
+      const isNetworkError = err instanceof TypeError || /failed to fetch|network/i.test(String(err?.message || err));
+      if (!isNetworkError || attempt === 2) break;
+    }
+  }
+  throw new Error(`업로드 연결에 실패했습니다. 잠시 후 다시 시도해 주세요. (${lastError?.message || 'network error'})`);
+}
+
 async function poll(jobId) {
   while (true) {
     const res = await fetch(`/api/status/${jobId}`, { cache: 'no-store' });
@@ -210,27 +315,22 @@ renderBtn.addEventListener('click', async () => {
     return;
   }
 
-  const totalBytes = items.reduce((sum, item) => sum + item.file.size, 0) + audioFile.size;
-  const maxBytes = (window.MAX_UPLOAD_MB || 150) * 1024 * 1024;
-  if (totalBytes > maxBytes) {
-    alert(`전체 업로드 용량은 ${window.MAX_UPLOAD_MB || 150}MB 이하여야 합니다.`);
-    return;
-  }
   renderBtn.disabled = true;
   renderBtn.textContent = '만드는 중...';
   resultCard.classList.add('hidden');
   progressCard.classList.remove('hidden');
-  setProgress(2, '파일을 업로드하고 있습니다.');
-
-  const form = new FormData();
-  items.forEach(item => form.append('images', item.file, item.file.name));
-  form.append('audio', audioFile, audioFile.name);
-  form.append('order', JSON.stringify(items.map((_, i) => i)));
+  setProgress(2, '사진을 준비하고 있습니다.');
 
   try {
-    const res = await fetch('/api/render', { method: 'POST', body: form });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '영상 생성 요청에 실패했습니다.');
+    const preparedFiles = await prepareUploadFiles();
+    const totalBytes = preparedFiles.reduce((sum, file) => sum + file.size, 0) + audioFile.size;
+    const maxBytes = (window.MAX_UPLOAD_MB || 150) * 1024 * 1024;
+    if (totalBytes > maxBytes) {
+      throw new Error(`최적화 후 전체 업로드 용량도 ${window.MAX_UPLOAD_MB || 150}MB를 초과합니다.`);
+    }
+
+    const requestId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+    const data = await sendRenderRequest(preparedFiles, requestId);
 
     await poll(data.job_id);
     preview.src = `/api/preview/${data.job_id}?t=${Date.now()}`;
