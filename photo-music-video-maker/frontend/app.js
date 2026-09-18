@@ -1,9 +1,57 @@
 const API_BASE = 'https://photo-music-video-maker-lebyul.onrender.com';
 const apiUrl = (path) => `${API_BASE}${path}`;
 
-// Static frontend loads instantly. Wake the free Render API in the background
-// while the user is choosing photos/music.
-fetch(apiUrl('/health'), { method: 'GET', mode: 'cors', cache: 'no-store' }).catch(() => {});
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function pingApi(timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(apiUrl('/health'), {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function waitForApiReady(maxWaitMs = 120000) {
+  const startedAt = Date.now();
+  let attempt = 0;
+
+  while (Date.now() - startedAt < maxWaitMs) {
+    attempt += 1;
+    const ok = await pingApi(10000);
+    if (ok) return;
+
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    setProgress(
+      2,
+      `영상 서버를 깨우는 중입니다... ${elapsed}초 (사진과 음악은 그대로 유지됩니다)`
+    );
+    await sleep(Math.min(5000, 1500 + attempt * 500));
+  }
+
+  throw new Error('영상 서버 연결이 오래 지연되고 있습니다. 다시 한 번 영상 만들기를 눌러 주세요.');
+}
+
+// First screen is static and instant. Start waking the video server immediately.
+pingApi().catch(() => {});
+
+// Keep the backend awake while this page stays open.
+setInterval(() => {
+  pingApi().catch(() => {});
+}, 10 * 60 * 1000);
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) pingApi().catch(() => {});
+});
 
 const imageInput = document.getElementById('imageInput');
 const audioInput = document.getElementById('audioInput');
@@ -271,11 +319,13 @@ function buildForm(preparedFiles, requestId) {
 
 async function sendRenderRequest(preparedFiles, requestId) {
   let lastError;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      if (attempt === 2) {
-        setProgress(18, '업로드 연결을 다시 시도하고 있습니다.');
-        await new Promise(r => setTimeout(r, 1200));
+      if (attempt > 1) {
+        const delay = attempt === 2 ? 2000 : 4000;
+        setProgress(18, `업로드 연결 재시도 중... ${attempt}/3`);
+        await sleep(delay);
       } else {
         setProgress(16, '파일을 업로드하고 있습니다.');
       }
@@ -285,22 +335,35 @@ async function sendRenderRequest(preparedFiles, requestId) {
         body: buildForm(preparedFiles, requestId)
       });
 
-      let data;
+      let data = {};
       try {
         data = await res.json();
       } catch {
-        throw new Error(`서버 응답 오류 (${res.status})`);
+        data = {};
       }
 
-      if (!res.ok) throw new Error(data.error || '영상 생성 요청에 실패했습니다.');
-      return data;
+      if (res.ok) return data;
+
+      const message = data.error || `서버 응답 오류 (${res.status})`;
+      lastError = new Error(message);
+
+      if (res.status < 500 || attempt === 3) {
+        throw lastError;
+      }
     } catch (err) {
       lastError = err;
-      const isNetworkError = err instanceof TypeError || /failed to fetch|network/i.test(String(err?.message || err));
-      if (!isNetworkError || attempt === 2) break;
+      const message = String(err?.message || err || '');
+      const retryable =
+        err instanceof TypeError ||
+        /failed to fetch|network|서버 응답 오류|502|503|504/i.test(message);
+
+      if (!retryable || attempt === 3) break;
     }
   }
-  throw new Error(`업로드 연결에 실패했습니다. 잠시 후 다시 시도해 주세요. (${lastError?.message || 'network error'})`);
+
+  throw new Error(
+    `업로드 연결에 실패했습니다. 파일은 그대로 있으니 다시 영상 만들기를 눌러 주세요. (${lastError?.message || 'network error'})`
+  );
 }
 
 async function poll(jobId) {
@@ -329,6 +392,10 @@ renderBtn.addEventListener('click', async () => {
   setProgress(2, '사진을 준비하고 있습니다.');
 
   try {
+    setProgress(2, '영상 서버 연결을 확인하고 있습니다.');
+    await waitForApiReady();
+    setProgress(3, '서버 연결 완료. 사진을 준비하고 있습니다.');
+
     const preparedFiles = await prepareUploadFiles();
     const totalBytes = preparedFiles.reduce((sum, file) => sum + file.size, 0) + audioFile.size;
     const maxBytes = (window.MAX_UPLOAD_MB || 150) * 1024 * 1024;
