@@ -11,11 +11,6 @@ import uuid
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
-from PIL import Image, ImageOps
-from pillow_heif import register_heif_opener
-import imageio_ffmpeg
-
-register_heif_opener()
 
 OUTPUT_DIR = Path(tempfile.gettempdir()) / "photo_music_video_output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -35,6 +30,17 @@ REQUEST_TTL_SECONDS = 10 * 60
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin")
+    if origin and origin.endswith(".onrender.com"):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range"
+        response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Accept-Ranges"
+    return response
 
 jobs: dict[str, dict] = {}
 request_jobs: dict[str, tuple[str, float]] = {}
@@ -76,7 +82,25 @@ def cleanup_job_later(job_id: str, path: Path) -> None:
     timer.start()
 
 
-def crop_cover(image: Image.Image, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
+_heif_registered = False
+_heif_lock = threading.Lock()
+
+
+def ensure_heif_support() -> None:
+    global _heif_registered
+    if _heif_registered:
+        return
+    with _heif_lock:
+        if _heif_registered:
+            return
+        from pillow_heif import register_heif_opener
+        register_heif_opener()
+        _heif_registered = True
+
+
+def crop_cover(image, width: int = WIDTH, height: int = HEIGHT):
+    from PIL import Image, ImageOps
+
     image = ImageOps.exif_transpose(image)
     if image.mode not in ("RGB", "RGBA"):
         image = image.convert("RGB")
@@ -93,6 +117,11 @@ def crop_cover(image: Image.Image, width: int = WIDTH, height: int = HEIGHT) -> 
 
 
 def prepare_frame(src: Path, dst: Path) -> None:
+    if src.suffix.lower() in {".heic", ".heif"}:
+        ensure_heif_support()
+
+    from PIL import Image
+
     with Image.open(src) as img:
         orientation = img.getexif().get(274, 1)
         if img.format == "JPEG" and img.mode == "RGB" and img.size == (WIDTH, HEIGHT) and orientation in (None, 1):
@@ -156,6 +185,7 @@ def build_video(
 ) -> None:
     workdir = Path(tempfile.mkdtemp(prefix=f"pmvm_{job_id}_"))
     try:
+        import imageio_ffmpeg
         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
         total_images = len(image_paths)
         set_job(job_id, status="processing", progress=8, message="사진을 준비하고 있습니다.")
