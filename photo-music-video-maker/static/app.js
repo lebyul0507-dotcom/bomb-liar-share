@@ -15,10 +15,27 @@ const progressMessage = document.getElementById('progressMessage');
 const resultCard = document.getElementById('resultCard');
 const preview = document.getElementById('preview');
 const downloadBtn = document.getElementById('downloadBtn');
+const aspectRatio = document.getElementById('aspectRatio');
+const videoSpec = document.getElementById('videoSpec');
 
 const MAX_IMAGES = 10;
-const TARGET_WIDTH = 1080;
-const TARGET_HEIGHT = 1920;
+const ASPECT_PRESETS = {
+  '9:16': { width: 1080, height: 1920 },
+  '3:4': { width: 1080, height: 1440 }
+};
+
+function getTargetSize() {
+  return ASPECT_PRESETS[aspectRatio?.value] || ASPECT_PRESETS['9:16'];
+}
+
+function applyAspectRatioUI() {
+  const ratio = aspectRatio?.value || '9:16';
+  const { width, height } = getTargetSize();
+  document.documentElement.style.setProperty('--video-aspect', `${width} / ${height}`);
+  if (videoSpec) {
+    videoSpec.textContent = `${width} × ${height} · ${ratio} · 30fps · H.264 · 최대 ${MAX_IMAGES}장`;
+  }
+}
 let items = [];
 let audioFile = null;
 let uid = 0;
@@ -89,7 +106,8 @@ function setAudioFile(file) {
   audioFile = file;
   musicName.textContent = audioFile.name;
   musicState.textContent = '선택 완료';
-  updateSummary();
+  applyAspectRatioUI();
+updateSummary();
 }
 
 function renderThumbs() {
@@ -213,15 +231,16 @@ async function optimizeImage(file) {
     return file;
   }
 
+  const { width: targetWidth, height: targetHeight } = getTargetSize();
   const canvas = document.createElement('canvas');
-  canvas.width = TARGET_WIDTH;
-  canvas.height = TARGET_HEIGHT;
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
   const ctx = canvas.getContext('2d', { alpha: false });
   ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+  ctx.fillRect(0, 0, targetWidth, targetHeight);
 
   const srcRatio = bitmap.width / bitmap.height;
-  const dstRatio = TARGET_WIDTH / TARGET_HEIGHT;
+  const dstRatio = targetWidth / targetHeight;
   let sx = 0;
   let sy = 0;
   let sw = bitmap.width;
@@ -235,7 +254,7 @@ async function optimizeImage(file) {
     sy = (bitmap.height - sh) / 2;
   }
 
-  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
   bitmap.close();
 
   const blob = await canvasToBlob(canvas, 'image/jpeg', 0.9);
@@ -259,6 +278,7 @@ function buildForm(preparedFiles, requestId) {
   form.append('audio', audioFile, audioFile.name);
   form.append('order', JSON.stringify(preparedFiles.map((_, i) => i)));
   form.append('request_id', requestId);
+  form.append('aspect_ratio', aspectRatio?.value || '9:16');
   return form;
 }
 
@@ -307,6 +327,13 @@ async function poll(jobId) {
     await new Promise(r => setTimeout(r, 500));
   }
 }
+
+aspectRatio?.addEventListener('change', () => {
+  applyAspectRatioUI();
+  resultCard.classList.add('hidden');
+  preview.removeAttribute('src');
+  preview.load();
+});
 
 renderBtn.addEventListener('click', async () => {
   if (!items.length || !audioFile) return;
