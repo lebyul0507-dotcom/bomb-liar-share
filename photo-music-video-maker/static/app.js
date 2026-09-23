@@ -373,4 +373,5 @@ renderBtn.addEventListener('click', async () => {
   }
 });
 
+applyAspectRatioUI();
 updateSummary();
