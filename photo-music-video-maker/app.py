@@ -19,8 +19,12 @@ ALLOWED_IMAGE_EXT = {
     ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".heif"
 }
 ALLOWED_AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus"}
-WIDTH = 1080
-HEIGHT = 1920
+ASPECT_PRESETS = {
+    "9:16": (1080, 1920),
+    "3:4": (1080, 1440),
+}
+DEFAULT_ASPECT = "9:16"
+WIDTH, HEIGHT = ASPECT_PRESETS[DEFAULT_ASPECT]
 FPS = 30
 SECONDS_PER_IMAGE = 3
 MAX_IMAGES = 10
@@ -116,7 +120,7 @@ def crop_cover(image, width: int = WIDTH, height: int = HEIGHT):
     )
 
 
-def prepare_frame(src: Path, dst: Path) -> None:
+def prepare_frame(src: Path, dst: Path, width: int, height: int) -> None:
     if src.suffix.lower() in {".heic", ".heif"}:
         ensure_heif_support()
 
@@ -124,10 +128,10 @@ def prepare_frame(src: Path, dst: Path) -> None:
 
     with Image.open(src) as img:
         orientation = img.getexif().get(274, 1)
-        if img.format == "JPEG" and img.mode == "RGB" and img.size == (WIDTH, HEIGHT) and orientation in (None, 1):
+        if img.format == "JPEG" and img.mode == "RGB" and img.size == (width, height) and orientation in (None, 1):
             shutil.copyfile(src, dst)
             return
-        frame = crop_cover(img)
+        frame = crop_cover(img, width=width, height=height)
         frame.save(dst, format="JPEG", quality=88)
 
 
@@ -182,6 +186,8 @@ def build_video(
     audio_path: Path | None,
     output_path: Path,
     upload_dir: Path,
+    width: int,
+    height: int,
 ) -> None:
     workdir = Path(tempfile.mkdtemp(prefix=f"pmvm_{job_id}_"))
     try:
@@ -194,7 +200,7 @@ def build_video(
         for idx, src in enumerate(image_paths, start=1):
             try:
                 frame_path = workdir / f"frame_{idx:04d}.jpg"
-                prepare_frame(src, frame_path)
+                prepare_frame(src, frame_path, width, height)
                 frame_paths.append(frame_path)
             except Exception as exc:
                 raise RuntimeError(f"{idx}번째 사진을 읽지 못했습니다: {src.name}\n{exc}") from exc
@@ -303,6 +309,12 @@ def render_video():
     images = request.files.getlist("images")
     audio = request.files.get("audio")
     order_raw = request.form.get("order", "[]")
+    aspect_ratio = (request.form.get("aspect_ratio") or DEFAULT_ASPECT).strip()
+
+    if aspect_ratio not in ASPECT_PRESETS:
+        return jsonify({"error": "지원하지 않는 영상 비율입니다. 9:16 또는 3:4를 선택해 주세요."}), 400
+
+    width, height = ASPECT_PRESETS[aspect_ratio]
 
     if not images:
         return jsonify({"error": "사진을 1장 이상 선택해 주세요."}), 400
@@ -350,7 +362,8 @@ def render_video():
 
         job_id = uuid.uuid4().hex
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        output_path = OUTPUT_DIR / f"photo_video_{stamp}_{job_id[:6]}.mp4"
+        ratio_slug = aspect_ratio.replace(":", "x")
+        output_path = OUTPUT_DIR / f"photo_video_{ratio_slug}_{stamp}_{job_id[:6]}.mp4"
 
         with jobs_lock:
             jobs[job_id] = {
@@ -358,18 +371,27 @@ def render_video():
                 "progress": 2,
                 "message": "작업을 시작합니다.",
                 "filename": None,
+                "aspect_ratio": aspect_ratio,
+                "width": width,
+                "height": height,
             }
             if client_request_id:
                 request_jobs[client_request_id] = (job_id, time.time())
 
         thread = threading.Thread(
             target=build_video,
-            args=(job_id, saved_images, saved_audio, output_path, upload_dir),
+            args=(job_id, saved_images, saved_audio, output_path, upload_dir, width, height),
             daemon=True,
         )
         thread.start()
 
-        return jsonify({"job_id": job_id, "duration": len(images) * SECONDS_PER_IMAGE})
+        return jsonify({
+            "job_id": job_id,
+            "duration": len(images) * SECONDS_PER_IMAGE,
+            "aspect_ratio": aspect_ratio,
+            "width": width,
+            "height": height,
+        })
     except Exception:
         shutil.rmtree(upload_dir, ignore_errors=True)
         raise
