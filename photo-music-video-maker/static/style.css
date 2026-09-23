@@ -1,4 +1,5 @@
 :root {
+  --video-aspect: 9 / 16;
   font-family: Inter, Pretendard, "Noto Sans KR", "Segoe UI", sans-serif;
   color: #171717;
   background: #f4f4f1;
@@ -25,7 +26,7 @@ h1 { margin: 0; font-size: clamp(36px, 6vw, 66px); letter-spacing: -.05em; line-
 .dropzone b { font-size: 16px; }
 .dropzone small, .music-picker small { color: #85857d; }
 .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 12px; margin-top: 14px; }
-.thumb { position: relative; aspect-ratio: 9/16; overflow: hidden; border-radius: 14px; background: #e6e6e0; border: 2px solid transparent; cursor: grab; user-select: none; }
+.thumb { position: relative; aspect-ratio: var(--video-aspect); overflow: hidden; border-radius: 14px; background: #e6e6e0; border: 2px solid transparent; cursor: grab; user-select: none; }
 .thumb:active { cursor: grabbing; }
 .thumb.dragging { opacity: .35; }
 .thumb.drag-target { border-color: #171717; }
@@ -42,6 +43,7 @@ h1 { margin: 0; font-size: clamp(36px, 6vw, 66px); letter-spacing: -.05em; line-
 .summary > div { border: 1px solid #e1e1da; background: #fafaf7; border-radius: 16px; padding: 16px; display: grid; gap: 4px; }
 .summary small { color: #85857d; }
 .summary b { font-size: 22px; letter-spacing: -.03em; }
+.summary select { width: 100%; border: 0; outline: none; background: transparent; color: #171717; font: inherit; font-size: 18px; font-weight: 800; letter-spacing: -.03em; cursor: pointer; padding: 0; }
 #renderBtn, .download-btn { border: 0; background: #171717; color: white; border-radius: 16px; font-weight: 800; font-size: 15px; cursor: pointer; text-decoration: none; display: grid; place-items: center; min-height: 60px; transition: .2s ease; }
 #renderBtn:hover:not(:disabled), .download-btn:hover { transform: translateY(-1px); background: #33332f; }
 #renderBtn:disabled { opacity: .35; cursor: not-allowed; }
@@ -50,7 +52,7 @@ h1 { margin: 0; font-size: clamp(36px, 6vw, 66px); letter-spacing: -.05em; line-
 .progress-card p { margin: 12px 0 0; font-size: 13px; color: #73736c; }
 .hidden { display: none !important; }
 .result-grid { display: grid; grid-template-columns: minmax(220px, 340px) 1fr; gap: 28px; align-items: center; }
-.result-grid video { width: 100%; aspect-ratio: 9/16; background: black; border-radius: 20px; object-fit: contain; }
+.result-grid video { width: 100%; aspect-ratio: var(--video-aspect); background: black; border-radius: 20px; object-fit: contain; }
 .result-actions { display: grid; gap: 12px; }
 .result-actions h3 { margin: 0; font-size: 28px; letter-spacing: -.04em; }
 .result-actions p { margin: 0; color: #73736c; line-height: 1.65; }
