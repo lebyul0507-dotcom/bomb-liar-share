@@ -13,21 +13,35 @@
 .sheet{position:relative;min-height:820px;background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px),linear-gradient(to bottom,var(--grid) 1px,transparent 1px);background-size:118px 26px;padding:52px 48px 80px;overflow:auto}.panel{width:min(1060px,calc(100vw - 110px));background:#fff;border:1px solid #aaa;margin-bottom:18px}.panel-title{background:var(--excel);color:#fff;font-weight:700;padding:9px 12px}.hidden{display:none!important}.grid{display:grid;grid-template-columns:180px 1fr}.label,.cell{min-height:44px;border-bottom:1px solid var(--grid);border-right:1px solid var(--grid);padding:9px 10px;display:flex;align-items:center}.label{background:#f7f7f7;font-weight:600}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}input,select,textarea{border:1px solid #aaa;padding:7px 8px;background:#fff}input,select{height:32px;min-width:180px}textarea{width:100%;min-height:80px;resize:vertical}.code{font:700 22px Consolas,monospace;letter-spacing:.14em;color:var(--dark)}.notice{margin:12px;padding:10px;background:#f7f7f7;border-left:4px solid #999}.notice.good{background:var(--soft);border-left-color:var(--excel)}.table{width:100%;border-collapse:collapse}.table th,.table td{border:1px solid var(--grid);padding:8px 10px}.table th{background:#f3f3f3}.online{color:var(--excel);font-weight:700}.hosttag{margin-left:6px;font-size:11px;background:var(--soft);padding:1px 5px;border:1px solid #b8d7c5}
 .stage{padding:14px}.task{font-size:20px;font-weight:700;margin-bottom:12px}.wait{padding:24px;text-align:center;color:#666}.canvasWrap{border:1px solid #aaa;background:#fff;overflow:auto}.drawtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.swatch{width:28px;height:28px;border:1px solid #777;padding:0}.swatch[data-color="#111111"]{background:#111}.swatch[data-color="#e53935"]{background:#e53935}.swatch[data-color="#1e88e5"]{background:#1e88e5}.swatch[data-color="#43a047"]{background:#43a047}.swatch[data-color="#fdd835"]{background:#fdd835}.swatch[data-color="#8e24aa"]{background:#8e24aa}.activeTool{outline:3px solid #7fc69d}.size{width:150px}.result{border-top:1px solid var(--grid);padding:16px}.chain{border:1px solid #aaa;margin:0 0 18px;background:#fff}.chainHead{padding:8px 10px;background:#f3f3f3;font-weight:700}.chainBody{display:grid;grid-template-columns:1fr 1.2fr 1fr}.chainCell{padding:12px;border-right:1px solid var(--grid);min-height:150px}.chainCell:last-child{border-right:0}.chain img{max-width:100%;max-height:260px;display:block;margin:auto;background:#fff}.small{font-size:12px;color:#777;margin-bottom:6px}.homeLink{color:var(--dark);font-weight:700;text-decoration:none}
 @media(max-width:760px){.sheet{padding-left:20px;padding-right:20px}.panel{width:calc(100vw - 40px)}.grid{grid-template-columns:120px 1fr}.chainBody{grid-template-columns:1fr}.chainCell{border-right:0;border-bottom:1px solid var(--grid)}canvas{width:100%;height:auto}}
+
+.entry-card{width:min(760px,calc(100vw - 64px));margin:56px auto;background:#fff;border:1px solid #999;padding:30px}
+.entry-card h1{font-size:34px;margin:0 0 18px}.entry-card p{font-size:18px;color:#666;margin:0 0 22px}
+.entry-tabs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.entry-tab{height:70px;border:1px solid #8a8a8a;background:#fff;font-size:20px;font-weight:800}
+.entry-tab.active{background:#18212b;color:#fff;border-color:#18212b}
+.entry-stack{display:grid;gap:16px}.entry-stack input{height:66px;width:100%;font-size:20px;padding:0 18px}
+.mode-box{height:72px;border:1px solid #ddd;background:#f7f7f7;display:flex;align-items:center;justify-content:center;font-size:20px;color:#666}
+.entry-action{height:70px;width:100%;font-size:21px;font-weight:800;background:var(--excel);border:1px solid var(--dark);color:#fff}
+@media(max-width:700px){.entry-card{width:calc(100vw - 34px);margin:54px auto;padding:28px 30px}.entry-card h1{font-size:32px}.entry-tab{height:68px}.entry-stack input{height:64px}}
 </style>
 </head>
 <body>
 <div class="app">
-<div class="titlebar">Image_Draft_Collaboration.xlsx <span class="status">AutoSaved</span></div>
+<div class="titlebar" style="height:94px;justify-content:flex-start;padding:0 30px;align-items:center"><div><div style="font-size:28px;font-weight:900">📊 TEAM SYNC</div><div style="font-size:16px;margin-top:5px">그림 릴레이 게임　<a href="/" style="color:#fff;font-weight:800">메인으로</a></div></div><span class="status">AutoSaved</span></div>
 <div class="menu"><span>파일</span><span>홈</span><span>삽입</span><span>데이터</span><span>검토</span><span>보기</span></div>
 <div class="toolbar"><button class="tool" onclick="location.href='/'">Overview</button><button class="tool">붙여넣기</button><button class="tool">정렬</button><button class="tool">필터</button><button class="tool">공유</button></div>
-<div class="formula"><div class="namebox">A1</div><div class="fx">fx</div><div class="formulabox">Image Draft / Shared Review</div></div>
+<div class="formula"><div class="namebox">A1</div><div class="fx">fx</div><div class="formulabox">TEAM SYNC / Drawing Relay</div></div>
 <main class="sheet">
-<section id="home" class="panel">
-<div class="panel-title">Collaboration Access</div>
-<div class="grid">
-<div class="label">Participant</div><div class="cell"><select id="name"><option value="">이름 선택</option><option>파랑새</option><option>핫걸 지니</option><option>아르미</option><option>나애 정하</option><option>벼리</option><option>리하맘</option></select></div>
-<div class="label">Access Code</div><div class="cell"><input id="code" maxlength="5" placeholder="예: A7K9Q"></div>
-<div class="label">Action</div><div class="cell"><div class="actions"><button id="createBtn" class="btn primary">새 작업 생성</button><button id="joinBtn" class="btn">작업 참가</button><a class="homeLink" href="/">메인으로</a></div></div>
+<section id="home" class="entry-card">
+<h1>그림 릴레이</h1>
+<p>문장 → 그림 → 해석으로 이어지는 팀 릴레이 게임.</p>
+<div class="entry-tabs"><button id="createTab" class="entry-tab active">방 만들기</button><button id="joinTab" class="entry-tab">참가하기</button></div>
+<div class="entry-stack">
+<input id="name" maxlength="12" placeholder="이름">
+<div id="joinCodeWrap" class="hidden"><input id="code" maxlength="5" placeholder="방 코드 입력"></div>
+<div id="modeBox" class="mode-box">일반 멀티플레이 모드</div>
+<button id="createBtn" class="entry-action">새 방 만들기</button>
+<button id="joinBtn" class="entry-action hidden">방 참가하기</button>
 </div>
 </section>
 
@@ -81,10 +95,14 @@
 <script>
 const socket=io();let roomCode=null,myName=null,hostName=null,currentRoom=null,currentTask=null,submitted=false;
 const $=id=>document.getElementById(id);const params=new URLSearchParams(location.search);if(params.get('room'))$('code').value=params.get('room').toUpperCase();
+function renderEntryMode(){const on=localStorage.getItem('teamSyncDeveloperMode')==='1';$('modeBox').textContent=on?'🛠 개발자 모드 ON · 혼자 테스트':'일반 멀티플레이 모드';$('modeBox').style.background=on?'#e9f3ed':'#f7f7f7';$('modeBox').style.color=on?'#0b5f31':'#666'}
+$('createTab').onclick=()=>{$('createTab').classList.add('active');$('joinTab').classList.remove('active');$('joinCodeWrap').classList.add('hidden');$('createBtn').classList.remove('hidden');$('joinBtn').classList.add('hidden')};
+$('joinTab').onclick=()=>{$('joinTab').classList.add('active');$('createTab').classList.remove('active');$('joinCodeWrap').classList.remove('hidden');$('joinBtn').classList.remove('hidden');$('createBtn').classList.add('hidden')};
+renderEntryMode();
 function show(id){['home','lobby','play','result'].forEach(x=>$(x).classList.toggle('hidden',x!==id))}
 function err(m){alert(m)}
-$('createBtn').onclick=()=>{const name=$('name').value;if(!name)return err('이름을 선택하세요.');socket.emit('relay:create',{name},r=>{if(!r.ok)return err(r.error);enter(r);if(localStorage.getItem('teamSyncDeveloperMode')==='1'){socket.emit('relay:developerMode',{code:r.code,enabled:true},x=>{if(x&&!x.ok)err(x.error)})}})}
-$('joinBtn').onclick=()=>{const name=$('name').value,code=$('code').value.trim().toUpperCase();if(!name)return err('이름을 선택하세요.');if(!code)return err('방 코드를 입력하세요.');socket.emit('relay:join',{name,code},r=>{if(!r.ok)return err(r.error);enter(r)})}
+$('createBtn').onclick=()=>{const name=$('name').value;if(!name)return err('이름을 입력하세요.');socket.emit('relay:create',{name},r=>{if(!r.ok)return err(r.error);enter(r);if(localStorage.getItem('teamSyncDeveloperMode')==='1'){socket.emit('relay:developerMode',{code:r.code,enabled:true},x=>{if(x&&!x.ok)err(x.error)})}})}
+$('joinBtn').onclick=()=>{const name=$('name').value,code=$('code').value.trim().toUpperCase();if(!name)return err('이름을 입력하세요.');if(!code)return err('방 코드를 입력하세요.');socket.emit('relay:join',{name,code},r=>{if(!r.ok)return err(r.error);enter(r)})}
 function enter(r){roomCode=r.code;myName=r.name;hostName=r.hostName;history.replaceState(null,'','?room='+roomCode);$('roomCode').textContent=roomCode;show('lobby')}
 $('copyBtn').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;try{await navigator.clipboard.writeText(u);$('copyMsg').textContent='복사 완료'}catch{prompt('링크 복사',u)}}
 $('startBtn').onclick=()=>socket.emit('relay:start',{code:roomCode});
