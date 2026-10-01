@@ -83,7 +83,7 @@ const socket=io();let roomCode=null,myName=null,hostName=null,currentRoom=null,c
 const $=id=>document.getElementById(id);const params=new URLSearchParams(location.search);if(params.get('room'))$('code').value=params.get('room').toUpperCase();
 function show(id){['home','lobby','play','result'].forEach(x=>$(x).classList.toggle('hidden',x!==id))}
 function err(m){alert(m)}
-$('createBtn').onclick=()=>{const name=$('name').value;if(!name)return err('이름을 선택하세요.');socket.emit('relay:create',{name},r=>{if(!r.ok)return err(r.error);enter(r)})}
+$('createBtn').onclick=()=>{const name=$('name').value;if(!name)return err('이름을 선택하세요.');socket.emit('relay:create',{name},r=>{if(!r.ok)return err(r.error);enter(r);if(localStorage.getItem('teamSyncDeveloperMode')==='1'){socket.emit('relay:developerMode',{code:r.code,enabled:true},x=>{if(x&&!x.ok)err(x.error)})}})}
 $('joinBtn').onclick=()=>{const name=$('name').value,code=$('code').value.trim().toUpperCase();if(!name)return err('이름을 선택하세요.');if(!code)return err('방 코드를 입력하세요.');socket.emit('relay:join',{name,code},r=>{if(!r.ok)return err(r.error);enter(r)})}
 function enter(r){roomCode=r.code;myName=r.name;hostName=r.hostName;history.replaceState(null,'','?room='+roomCode);$('roomCode').textContent=roomCode;show('lobby')}
 $('copyBtn').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;try{await navigator.clipboard.writeText(u);$('copyMsg').textContent='복사 완료'}catch{prompt('링크 복사',u)}}
