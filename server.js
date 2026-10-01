@@ -699,16 +699,55 @@ const TELEPATHY_BANK_LEGACY = {
 function tpCode(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();while(telepathyRooms.has(c));return c}
 function tpNorm(v=''){return String(v).trim().toLowerCase().replace(/[\s!！?？.,，。~～·\-_]/g,'')}
 function tpSettings(x={}){const count=Math.max(1,Math.min(10,Number(x.count)||5));const timer=[0,10,15,20].includes(Number(x.timer))?Number(x.timer):15;const category=['random','food','daily','company','love','balance','travel','taste','memory','content','imagination','custom'].includes(x.category)?x.category:'random';return{count,timer,category}}
-function tpQuestions(s,custom=[]){if(s.category==='custom'){const q=custom.map(v=>String(v).trim()).filter(Boolean).slice(0,10);return (q.length?q:TELEPATHY_ALL_QUESTIONS).slice(0,s.count)}const base=[...(s.category==='random'?TELEPATHY_ALL_QUESTIONS:(TELEPATHY_QUESTION_BANK[s.category]||TELEPATHY_ALL_QUESTIONS))];shuffle(base);return base.slice(0,s.count)}
+function tpBuildDeck(category){
+  const base=[...(category==='random'?TELEPATHY_ALL_QUESTIONS:(TELEPATHY_QUESTION_BANK[category]||TELEPATHY_ALL_QUESTIONS))];
+  shuffle(base);
+  return base;
+}
+function tpQuestions(room,s,custom=[]){
+  if(s.category==='custom'){
+    const q=custom.map(v=>String(v).trim()).filter(Boolean).slice(0,10);
+    return (q.length?q:TELEPATHY_ALL_QUESTIONS).slice(0,s.count);
+  }
+  if(!room.questionDecks) room.questionDecks={};
+  if(!room.recentQuestions) room.recentQuestions={};
+
+  const key=s.category;
+  const fullPool=(key==='random'?TELEPATHY_ALL_QUESTIONS:(TELEPATHY_QUESTION_BANK[key]||TELEPATHY_ALL_QUESTIONS));
+  let deck=room.questionDecks[key]||[];
+  const recent=new Set(room.recentQuestions[key]||[]);
+
+  // Refill only when not enough questions remain.
+  if(deck.length < s.count){
+    const refill=tpBuildDeck(key).filter(q=>!recent.has(q));
+    const existing=new Set(deck);
+    for(const q of refill) if(!existing.has(q)) deck.push(q);
+
+    // If everything was recently used, allow a fresh reshuffle.
+    if(deck.length < s.count){
+      const fallback=tpBuildDeck(key);
+      for(const q of fallback) if(!existing.has(q)) deck.push(q);
+    }
+  }
+
+  const picked=deck.splice(0,s.count);
+  room.questionDecks[key]=deck;
+
+  // Keep enough recent history so consecutive games do not repeat.
+  const maxRecent=Math.min(fullPool.length, Math.max(50, s.count*5));
+  room.recentQuestions[key]=[...picked,...(room.recentQuestions[key]||[])].filter((q,i,a)=>a.indexOf(q)===i).slice(0,maxRecent);
+
+  return picked;
+}
 function tpPublic(r){return{code:r.code,hostId:r.hostId,phase:r.phase,settings:r.settings,currentIndex:r.currentIndex,currentQuestion:r.questions[r.currentIndex]||null,totalQuestions:r.questions.length,players:r.players.map(p=>({id:p.id,name:p.name,score:p.score,connected:p.connected,submitted:!!r.answers[p.id],streak:p.streak})),roundResult:r.roundResult,history:r.history,final:r.final||null}}
 function tpEmit(r){io.to('telepathy:'+r.code).emit('telepathy:update',tpPublic(r))}
 function tpCalc(r){const active=r.players.filter(p=>r.answers[p.id]);const groups=new Map();for(const p of active){const a=r.answers[p.id].answer,k=tpNorm(a);if(!k)continue;if(!groups.has(k))groups.set(k,{display:a.trim(),playerIds:[]});groups.get(k).playerIds.push(p.id)}const matched=new Set();for(const g of groups.values())if(g.playerIds.length>=2)g.playerIds.forEach(id=>matched.add(id));r.players.forEach(p=>{if(matched.has(p.id)){p.score++;p.streak++}else if(r.answers[p.id])p.streak=0});const perfect=active.length>=2&&groups.size===1;if(perfect)r.perfectCount++;for(const g of groups.values())if(g.playerIds.length>=2)for(let i=0;i<g.playerIds.length;i++)for(let j=i+1;j<g.playerIds.length;j++){const k=[g.playerIds[i],g.playerIds[j]].sort().join('|');r.pairs[k]=(r.pairs[k]||0)+1}for(let i=0;i<active.length;i++)for(let j=i+1;j<active.length;j++){const k=[active[i].id,active[j].id].sort().join('|');r.pairRounds[k]=(r.pairRounds[k]||0)+1}r.roundResult={groups:[...groups.values()].map(g=>({answer:g.display,playerIds:g.playerIds,matched:g.playerIds.length>=2})).sort((a,b)=>b.playerIds.length-a.playerIds.length),perfect,matchedIds:[...matched]};r.history.push({question:r.questions[r.currentIndex],...r.roundResult})}
 function tpFinal(r){const ranking=[...r.players].sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name)).map((p,i)=>({rank:i+1,id:p.id,name:p.name,score:p.score}));const compatibility=[];for(const [k,matches] of Object.entries(r.pairs)){const[a,b]=k.split('|'),total=r.pairRounds[k]||0,pa=r.players.find(p=>p.id===a),pb=r.players.find(p=>p.id===b);if(pa&&pb&&total)compatibility.push({a:{id:a,name:pa.name},b:{id:b,name:pb.name},matches,total,percent:Math.round(matches/total*100)})}compatibility.sort((a,b)=>b.percent-a.percent||b.matches-a.matches);return{ranking,compatibility,perfectCount:r.perfectCount}}
 function tpReveal(r){if(r.phase!=='question')return;r.phase='reveal';tpCalc(r);tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:revealed',r.roundResult)}
 io.on('connection',socket=>{
-  socket.on('telepathy:create',({name},cb)=>{const code=tpCode(),playerId=crypto.randomUUID();const room={code,hostId:playerId,phase:'lobby',settings:{count:5,timer:15,category:'random'},questions:[],currentIndex:0,players:[{id:playerId,name:String(name||'방장').trim().slice(0,12),score:0,streak:0,connected:true,socketId:socket.id}],answers:{},roundResult:null,history:[],perfectCount:0,pairs:{},pairRounds:{},final:null};telepathyRooms.set(code,room);socket.join('telepathy:'+code);socket.data.telepathyCode=code;socket.data.telepathyPlayerId=playerId;cb?.({ok:true,code,playerId});tpEmit(room)});
+  socket.on('telepathy:create',({name},cb)=>{const code=tpCode(),playerId=crypto.randomUUID();const room={code,hostId:playerId,phase:'lobby',settings:{count:5,timer:15,category:'random'},questions:[],currentIndex:0,players:[{id:playerId,name:String(name||'방장').trim().slice(0,12),score:0,streak:0,connected:true,socketId:socket.id}],answers:{},roundResult:null,history:[],perfectCount:0,pairs:{},pairRounds:{},final:null,questionDecks:{},recentQuestions:{}};telepathyRooms.set(code,room);socket.join('telepathy:'+code);socket.data.telepathyCode=code;socket.data.telepathyPlayerId=playerId;cb?.({ok:true,code,playerId});tpEmit(room)});
   socket.on('telepathy:join',({code,name,playerId},cb)=>{const room=telepathyRooms.get(String(code||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(!['lobby','question'].includes(room.phase))return cb?.({ok:false,error:'현재 참가할 수 없는 단계입니다.'});p={id:crypto.randomUUID(),name:String(name||'플레이어').trim().slice(0,12),score:0,streak:0,connected:true,socketId:socket.id};room.players.push(p)}socket.join('telepathy:'+room.code);socket.data.telepathyCode=room.code;socket.data.telepathyPlayerId=p.id;cb?.({ok:true,code:room.code,playerId:p.id});tpEmit(room)});
-  socket.on('telepathy:start',({settings,customQuestions=[]},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return cb?.({ok:false,error:'방장만 시작할 수 있습니다.'});if(r.players.filter(p=>p.connected).length<2)return cb?.({ok:false,error:'최소 2명 이상 필요합니다.'});r.settings=tpSettings(settings);r.questions=tpQuestions(r.settings,customQuestions);r.currentIndex=0;r.phase='question';r.answers={};r.roundResult=null;r.history=[];r.perfectCount=0;r.pairs={};r.pairRounds={};r.final=null;r.players.forEach(p=>{p.score=0;p.streak=0});cb?.({ok:true});tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:round-start',{duration:r.settings.timer})});
+  socket.on('telepathy:start',({settings,customQuestions=[]},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return cb?.({ok:false,error:'방장만 시작할 수 있습니다.'});if(r.players.filter(p=>p.connected).length<2)return cb?.({ok:false,error:'최소 2명 이상 필요합니다.'});r.settings=tpSettings(settings);r.questions=tpQuestions(r,r.settings,customQuestions);r.currentIndex=0;r.phase='question';r.answers={};r.roundResult=null;r.history=[];r.perfectCount=0;r.pairs={};r.pairRounds={};r.final=null;r.players.forEach(p=>{p.score=0;p.streak=0});cb?.({ok:true});tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:round-start',{duration:r.settings.timer})});
   socket.on('telepathy:answer',({answer},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode),pid=socket.data.telepathyPlayerId;if(!r||r.phase!=='question')return;if(!String(answer||'').trim())return cb?.({ok:false,error:'답을 입력해주세요.'});r.answers[pid]={answer:String(answer).trim().slice(0,30)};cb?.({ok:true});tpEmit(r);const active=r.players.filter(p=>p.connected);if(active.length>=2&&active.every(p=>r.answers[p.id]))tpReveal(r)});
   socket.on('telepathy:reveal',(_,cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(r&&socket.data.telepathyPlayerId===r.hostId)tpReveal(r);cb?.({ok:true})});
   socket.on('telepathy:next',(_,cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId||r.phase!=='reveal')return;if(r.currentIndex>=r.questions.length-1){r.phase='finished';r.final=tpFinal(r);tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:finished',r.final);return cb?.({ok:true,finished:true})}r.currentIndex++;r.phase='question';r.answers={};r.roundResult=null;tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:round-start',{duration:r.settings.timer});cb?.({ok:true})});
