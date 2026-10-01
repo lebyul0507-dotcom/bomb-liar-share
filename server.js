@@ -8,7 +8,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-const PLAYERS = ['지니', '윤정', '수히', '아름', '정하'];
+const PLAYERS = ['파랑새', '핫걸 지니', '아르미', '나애 정하', '벼리', '리하맘'];
 const ROUND_COUNTS = { 3: 2, 5: 3, 7: 4 };
 const DISCUSSION_SECONDS = 60;
 const MAX_MESSAGE_LENGTH = 120;
