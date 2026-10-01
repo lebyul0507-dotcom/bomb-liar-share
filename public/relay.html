@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Image Draft Collaboration</title>
+<style>
+:root{--excel:#107c41;--dark:#0b5f31;--soft:#e9f3ed;--grid:#d9d9d9;--head:#f3f3f3;--danger:#c62828}
+*{box-sizing:border-box}body{margin:0;background:#ececec;color:#222;font-family:Aptos,Calibri,"Segoe UI",Arial,sans-serif;font-size:14px}button,input,select,textarea{font:inherit}button{cursor:pointer}
+.app{min-height:100vh;background:#fff;max-width:1450px;margin:auto;box-shadow:0 0 24px #0002}.titlebar{height:36px;background:var(--excel);color:#fff;display:flex;align-items:center;justify-content:center;position:relative}.status{position:absolute;right:18px;font-size:12px}
+.menu{display:flex;gap:22px;padding:9px 18px 6px;border-bottom:1px solid #ddd}.menu span:first-child{color:var(--excel);font-weight:700}.toolbar{height:48px;padding:7px 18px;display:flex;gap:8px;align-items:center;background:#fafafa;border-bottom:1px solid #ccc}.tool,.btn{height:32px;padding:0 12px;border:1px solid #aaa;background:#fff}.btn.primary{background:var(--excel);color:#fff;border-color:var(--dark);font-weight:700}.btn:disabled{opacity:.45;cursor:not-allowed}
+.formula{display:grid;grid-template-columns:48px 28px 1fr;border-bottom:1px solid #ccc}.namebox,.fx,.formulabox{height:30px;display:flex;align-items:center;border-right:1px solid #ddd;padding:0 8px}.fx{justify-content:center;font-style:italic;color:#777}
+.sheet{position:relative;min-height:820px;background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px),linear-gradient(to bottom,var(--grid) 1px,transparent 1px);background-size:118px 26px;padding:52px 48px 80px;overflow:auto}.panel{width:min(1060px,calc(100vw - 110px));background:#fff;border:1px solid #aaa;margin-bottom:18px}.panel-title{background:var(--excel);color:#fff;font-weight:700;padding:9px 12px}.hidden{display:none!important}.grid{display:grid;grid-template-columns:180px 1fr}.label,.cell{min-height:44px;border-bottom:1px solid var(--grid);border-right:1px solid var(--grid);padding:9px 10px;display:flex;align-items:center}.label{background:#f7f7f7;font-weight:600}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}input,select,textarea{border:1px solid #aaa;padding:7px 8px;background:#fff}input,select{height:32px;min-width:180px}textarea{width:100%;min-height:80px;resize:vertical}.code{font:700 22px Consolas,monospace;letter-spacing:.14em;color:var(--dark)}.notice{margin:12px;padding:10px;background:#f7f7f7;border-left:4px solid #999}.notice.good{background:var(--soft);border-left-color:var(--excel)}.table{width:100%;border-collapse:collapse}.table th,.table td{border:1px solid var(--grid);padding:8px 10px}.table th{background:#f3f3f3}.online{color:var(--excel);font-weight:700}.hosttag{margin-left:6px;font-size:11px;background:var(--soft);padding:1px 5px;border:1px solid #b8d7c5}
+.stage{padding:14px}.task{font-size:20px;font-weight:700;margin-bottom:12px}.wait{padding:24px;text-align:center;color:#666}.canvasWrap{border:1px solid #aaa;background:#fff;overflow:auto}.drawtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.swatch{width:28px;height:28px;border:1px solid #777;padding:0}.swatch[data-color="#111111"]{background:#111}.swatch[data-color="#e53935"]{background:#e53935}.swatch[data-color="#1e88e5"]{background:#1e88e5}.swatch[data-color="#43a047"]{background:#43a047}.swatch[data-color="#fdd835"]{background:#fdd835}.swatch[data-color="#8e24aa"]{background:#8e24aa}.activeTool{outline:3px solid #7fc69d}.size{width:150px}.result{border-top:1px solid var(--grid);padding:16px}.chain{border:1px solid #aaa;margin:0 0 18px;background:#fff}.chainHead{padding:8px 10px;background:#f3f3f3;font-weight:700}.chainBody{display:grid;grid-template-columns:1fr 1.2fr 1fr}.chainCell{padding:12px;border-right:1px solid var(--grid);min-height:150px}.chainCell:last-child{border-right:0}.chain img{max-width:100%;max-height:260px;display:block;margin:auto;background:#fff}.small{font-size:12px;color:#777;margin-bottom:6px}.homeLink{color:var(--dark);font-weight:700;text-decoration:none}
+@media(max-width:760px){.sheet{padding-left:20px;padding-right:20px}.panel{width:calc(100vw - 40px)}.grid{grid-template-columns:120px 1fr}.chainBody{grid-template-columns:1fr}.chainCell{border-right:0;border-bottom:1px solid var(--grid)}canvas{width:100%;height:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="titlebar">Image_Draft_Collaboration.xlsx <span class="status">AutoSaved</span></div>
+<div class="menu"><span>파일</span><span>홈</span><span>삽입</span><span>데이터</span><span>검토</span><span>보기</span></div>
+<div class="toolbar"><button class="tool" onclick="location.href='/'">Overview</button><button class="tool">붙여넣기</button><button class="tool">정렬</button><button class="tool">필터</button><button class="tool">공유</button></div>
+<div class="formula"><div class="namebox">A1</div><div class="fx">fx</div><div class="formulabox">Image Draft / Shared Review</div></div>
+<main class="sheet">
+<section id="home" class="panel">
+<div class="panel-title">Collaboration Access</div>
+<div class="grid">
+<div class="label">Participant</div><div class="cell"><select id="name"><option value="">이름 선택</option><option>파랑새</option><option>핫걸 지니</option><option>아르미</option><option>나애 정하</option><option>벼리</option><option>리하맘</option></select></div>
+<div class="label">Access Code</div><div class="cell"><input id="code" maxlength="5" placeholder="예: A7K9Q"></div>
+<div class="label">Action</div><div class="cell"><div class="actions"><button id="createBtn" class="btn primary">새 작업 생성</button><button id="joinBtn" class="btn">작업 참가</button><a class="homeLink" href="/">메인으로</a></div></div>
+</div>
+</section>
+
+<section id="lobby" class="panel hidden">
+<div class="panel-title">Session Setup</div>
+<div class="grid"><div class="label">Session Code</div><div class="cell"><span id="roomCode" class="code"></span></div><div class="label">Share</div><div class="cell"><button id="copyBtn" class="btn">공유 링크 복사</button><span id="copyMsg"></span></div></div>
+<table class="table"><thead><tr><th>이름</th><th>접속 상태</th></tr></thead><tbody id="players"></tbody></table>
+<div id="lobbyNotice" class="notice">최소 3명이 입장해야 시작할 수 있습니다.</div>
+<div class="actions" style="padding:0 12px 12px"><button id="startBtn" class="btn primary">릴레이 시작</button><button class="btn" onclick="location.href='/'">메인으로</button></div>
+</section>
+
+<section id="play" class="panel hidden">
+<div class="panel-title">Live Draft Relay</div>
+<div class="stage">
+<div id="stageTitle" class="task">준비 중</div>
+<div id="sentenceStage" class="hidden">
+<textarea id="sentenceInput" maxlength="80" placeholder="다음 사람이 그림으로 그릴 수 있는 문장을 적어주세요."></textarea>
+<div class="actions" style="margin-top:8px"><button id="sentenceBtn" class="btn primary">문장 제출</button></div>
+</div>
+<div id="drawStage" class="hidden">
+<div class="notice good">그릴 문장: <b id="drawSentence"></b></div>
+<div class="drawtools">
+<button class="swatch" data-color="#111111" title="검정"></button><button class="swatch" data-color="#e53935" title="빨강"></button><button class="swatch" data-color="#1e88e5" title="파랑"></button><button class="swatch" data-color="#43a047" title="초록"></button><button class="swatch" data-color="#fdd835" title="노랑"></button><button class="swatch" data-color="#8e24aa" title="보라"></button>
+<input id="colorPicker" type="color" value="#111111" title="스포이트/색상 선택">
+<button id="penBtn" class="btn activeTool">펜</button><button id="eraserBtn" class="btn">지우개</button>
+<label>크기 <input id="size" class="size" type="range" min="2" max="50" value="7"></label>
+<button id="clearBtn" class="btn">전체 지우기</button>
+</div>
+<div class="canvasWrap"><canvas id="canvas" width="900" height="520"></canvas></div>
+<div class="actions" style="margin-top:10px"><button id="drawingBtn" class="btn primary">그림 제출</button></div>
+</div>
+<div id="guessStage" class="hidden">
+<div class="notice">아래 그림이 어떤 문장이었는지 추측해 주세요.</div>
+<img id="guessImage" style="max-width:100%;max-height:440px;border:1px solid #aaa;background:white;display:block;margin:10px auto">
+<textarea id="guessInput" maxlength="80" placeholder="그림을 보고 원래 문장을 추측해 입력하세요."></textarea>
+<div class="actions" style="margin-top:8px"><button id="guessBtn" class="btn primary">해석 제출</button></div>
+</div>
+<div id="waiting" class="wait hidden">제출 완료. 다른 참가자를 기다리는 중입니다.</div>
+</div>
+</section>
+
+<section id="result" class="panel hidden">
+<div class="panel-title">Final Review</div>
+<div id="resultBody"></div>
+<div class="actions" style="padding:0 16px 16px"><button id="restartBtn" class="btn primary">다시 하기</button><button class="btn" onclick="location.href='/'">메인으로</button></div>
+</section>
+</main>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket=io();let roomCode=null,myName=null,hostName=null,currentRoom=null,currentTask=null,submitted=false;
+const $=id=>document.getElementById(id);const params=new URLSearchParams(location.search);if(params.get('room'))$('code').value=params.get('room').toUpperCase();
+function show(id){['home','lobby','play','result'].forEach(x=>$(x).classList.toggle('hidden',x!==id))}
+function err(m){alert(m)}
+$('createBtn').onclick=()=>{const name=$('name').value;if(!name)return err('이름을 선택하세요.');socket.emit('relay:create',{name},r=>{if(!r.ok)return err(r.error);enter(r)})}
+$('joinBtn').onclick=()=>{const name=$('name').value,code=$('code').value.trim().toUpperCase();if(!name)return err('이름을 선택하세요.');if(!code)return err('방 코드를 입력하세요.');socket.emit('relay:join',{name,code},r=>{if(!r.ok)return err(r.error);enter(r)})}
+function enter(r){roomCode=r.code;myName=r.name;hostName=r.hostName;history.replaceState(null,'','?room='+roomCode);$('roomCode').textContent=roomCode;show('lobby')}
+$('copyBtn').onclick=async()=>{const u=location.origin+location.pathname+'?room='+roomCode;try{await navigator.clipboard.writeText(u);$('copyMsg').textContent='복사 완료'}catch{prompt('링크 복사',u)}}
+$('startBtn').onclick=()=>socket.emit('relay:start',{code:roomCode});
+$('restartBtn').onclick=()=>socket.emit('relay:restart',{code:roomCode});
+$('sentenceBtn').onclick=()=>{const text=$('sentenceInput').value.trim();socket.emit('relay:sentence',{code:roomCode,text},r=>{if(!r.ok)return err(r.error);submitted=true;renderTask()})}
+$('guessBtn').onclick=()=>{const text=$('guessInput').value.trim();socket.emit('relay:guess',{code:roomCode,text},r=>{if(!r.ok)return err(r.error);submitted=true;renderTask()})}
+socket.on('relay:update',r=>{currentRoom=r;hostName=r.hostName;$('roomCode').textContent=r.code;renderPlayers(r);if(r.status==='lobby'){submitted=false;show('lobby')}else if(r.status==='result'){show('result');renderResult(r)}else{show('play');renderTask()}})
+socket.on('relay:task',t=>{currentTask=t;submitted=false;renderTask()})
+socket.on('relay:error',err);
+
+function renderPlayers(r){$('players').innerHTML=r.players.map(p=>'<tr><td>'+p.name+(p.name===r.hostName?'<span class="hosttag">담당</span>':'')+'</td><td class="'+(p.connected?'online':'')+'">'+(p.connected?'접속':'대기')+'</td></tr>').join('');const c=r.players.filter(p=>p.connected).length;$('lobbyNotice').className='notice '+(c>=3?'good':'');$('lobbyNotice').textContent=c>=3?c+'명 접속 완료. 담당자가 시작할 수 있습니다.':'현재 '+c+'명 접속. 최소 3명이 필요합니다.';$('startBtn').classList.toggle('hidden',myName!==r.hostName);$('startBtn').disabled=c<3;$('restartBtn').classList.toggle('hidden',myName!==r.hostName)}
+function renderTask(){if(!currentRoom||!currentTask)return;['sentenceStage','drawStage','guessStage','waiting'].forEach(x=>$(x).classList.add('hidden'));if(submitted){$('stageTitle').textContent='제출 완료';$('waiting').classList.remove('hidden');return}if(currentTask.stage==='sentence'){$('stageTitle').textContent='1단계 · 문장 작성';$('sentenceStage').classList.remove('hidden')}else if(currentTask.stage==='draw'){$('stageTitle').textContent='2단계 · 그림 그리기';$('drawSentence').textContent=currentTask.sentence;$('drawStage').classList.remove('hidden');resetCanvas()}else if(currentTask.stage==='guess'){$('stageTitle').textContent='3단계 · 그림 해석';$('guessImage').src=currentTask.image;$('guessStage').classList.remove('hidden')}}
+function renderResult(r){const list=r.result||[];$('resultBody').innerHTML=list.map((x,i)=>'<div class="chain"><div class="chainHead">'+(i+1)+'번 릴레이 · 시작 '+x.starter+'</div><div class="chainBody"><div class="chainCell"><div class="small">처음 문장</div><b>'+escapeHtml(x.sentence)+'</b></div><div class="chainCell"><div class="small">그림 · '+escapeHtml(x.artist)+'</div>'+(x.drawing?'<img src="'+x.drawing+'">':'그림 없음')+'</div><div class="chainCell"><div class="small">마지막 해석 · '+escapeHtml(x.guesser)+'</div><b>'+escapeHtml(x.guess)+'</b></div></div></div>').join('')}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+
+const canvas=$('canvas'),ctx=canvas.getContext('2d');ctx.lineCap='round';ctx.lineJoin='round';let drawing=false,lastX=0,lastY=0,mode='pen',color='#111111';
+function resetCanvas(){ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.restore()}
+resetCanvas();
+function point(e){const r=canvas.getBoundingClientRect(),t=e.touches?.[0]||e;return{x:(t.clientX-r.left)*(canvas.width/r.width),y:(t.clientY-r.top)*(canvas.height/r.height)}}
+function start(e){e.preventDefault();drawing=true;const p=point(e);lastX=p.x;lastY=p.y}
+function move(e){if(!drawing)return;e.preventDefault();const p=point(e);ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(p.x,p.y);ctx.lineWidth=Number($('size').value);ctx.strokeStyle=mode==='eraser'?'#ffffff':color;ctx.globalCompositeOperation='source-over';ctx.stroke();lastX=p.x;lastY=p.y}
+function end(){drawing=false}
+canvas.addEventListener('pointerdown',start);canvas.addEventListener('pointermove',move);window.addEventListener('pointerup',end);
+document.querySelectorAll('.swatch').forEach(b=>b.onclick=()=>{color=b.dataset.color;$('colorPicker').value=color;mode='pen';toolState()});
+$('colorPicker').oninput=e=>{color=e.target.value;mode='pen';toolState()}
+$('penBtn').onclick=()=>{mode='pen';toolState()};$('eraserBtn').onclick=()=>{mode='eraser';toolState()};$('clearBtn').onclick=resetCanvas;
+function toolState(){$('penBtn').classList.toggle('activeTool',mode==='pen');$('eraserBtn').classList.toggle('activeTool',mode==='eraser')}
+$('drawingBtn').onclick=()=>{const image=canvas.toDataURL('image/jpeg',0.72);socket.emit('relay:drawing',{code:roomCode,image},r=>{if(!r.ok)return err(r.error);submitted=true;renderTask()})}
+</script>
+</body></html>
