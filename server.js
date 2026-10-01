@@ -396,4 +396,255 @@ function join(socket, room, name, cb) {
   }
 }
 
+
+const relayRooms = new Map();
+
+function relayCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code;
+  do {
+    code = Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  } while (relayRooms.has(code) || rooms.has(code));
+  return code;
+}
+
+function relayConnected(room) {
+  return room.roundPlayers?.length
+    ? room.roundPlayers.filter(name => room.players[name])
+    : PLAYERS.filter(name => room.players[name]);
+}
+
+function relaySnapshot(room) {
+  return {
+    code: room.code,
+    hostName: room.hostName,
+    status: room.status,
+    players: PLAYERS.map(name => ({ name, connected: !!room.players[name] })),
+    roundPlayers: room.roundPlayers || [],
+    order: room.order || [],
+    submitted: room.submitted || [],
+    result: room.status === 'result' ? room.result : null,
+    serverNow: Date.now()
+  };
+}
+
+function relayBroadcast(room) {
+  io.to('relay:' + room.code).emit('relay:update', relaySnapshot(room));
+}
+
+function relayTaskFor(room, name) {
+  const n = room.order.length;
+  const i = room.order.indexOf(name);
+  if (i < 0 || !n) return null;
+  if (room.status === 'sentence') return { stage: 'sentence' };
+  if (room.status === 'draw') {
+    const starter = room.order[(i - 1 + n) % n];
+    return { stage: 'draw', starter, sentence: room.sentences[starter] || '' };
+  }
+  if (room.status === 'guess') {
+    const starter = room.order[(i - 2 + n) % n];
+    const drawing = room.drawings[starter];
+    return { stage: 'guess', starter, image: drawing?.data || '' };
+  }
+  return { stage: room.status };
+}
+
+function relaySendTasks(room) {
+  relayConnected(room).forEach(name => {
+    const sid = room.players[name];
+    const client = io.sockets.sockets.get(sid);
+    if (client) client.emit('relay:task', relayTaskFor(room, name));
+  });
+}
+
+function relayMaybeAdvance(room) {
+  const active = relayConnected(room);
+  if (!active.length) return;
+
+  if (room.status === 'sentence') {
+    const done = active.every(name => room.sentences[name]);
+    if (!done) return;
+    room.status = 'draw';
+    room.submitted = [];
+    relayBroadcast(room);
+    relaySendTasks(room);
+    return;
+  }
+
+  if (room.status === 'draw') {
+    const neededStarters = active.map(name => {
+      const i = room.order.indexOf(name);
+      return room.order[(i - 1 + room.order.length) % room.order.length];
+    });
+    const done = neededStarters.every(starter => room.drawings[starter]?.data);
+    if (!done) return;
+    room.status = 'guess';
+    room.submitted = [];
+    relayBroadcast(room);
+    relaySendTasks(room);
+    return;
+  }
+
+  if (room.status === 'guess') {
+    const neededStarters = active.map(name => {
+      const i = room.order.indexOf(name);
+      return room.order[(i - 2 + room.order.length) % room.order.length];
+    });
+    const done = neededStarters.every(starter => room.guesses[starter]);
+    if (!done) return;
+
+    room.status = 'result';
+    room.result = room.order.map(starter => ({
+      starter,
+      sentence: room.sentences[starter] || '(중도 이탈)',
+      drawing: room.drawings[starter]?.data || '',
+      artist: room.drawings[starter]?.artist || '-',
+      guess: room.guesses[starter]?.text || '(중도 이탈)',
+      guesser: room.guesses[starter]?.guesser || '-'
+    }));
+    room.submitted = [];
+    relayBroadcast(room);
+  }
+}
+
+io.on('connection', socket => {
+  socket.on('relay:create', ({ name }, cb) => {
+    if (!PLAYERS.includes(name)) return cb?.({ ok: false, error: '등록된 참가자 이름이 아닙니다.' });
+    const code = relayCode();
+    const room = {
+      code,
+      hostName: name,
+      players: {},
+      status: 'lobby',
+      roundPlayers: [],
+      order: [],
+      sentences: {},
+      drawings: {},
+      guesses: {},
+      submitted: [],
+      result: null
+    };
+    relayRooms.set(code, room);
+    relayJoin(socket, room, name, cb);
+  });
+
+  socket.on('relay:join', ({ code, name }, cb) => {
+    code = String(code || '').trim().toUpperCase();
+    if (!PLAYERS.includes(name)) return cb?.({ ok: false, error: '등록된 참가자 이름이 아닙니다.' });
+    const room = relayRooms.get(code);
+    if (!room) return cb?.({ ok: false, error: '방을 찾을 수 없습니다.' });
+    relayJoin(socket, room, name, cb);
+  });
+
+  socket.on('relay:start', ({ code }) => {
+    const room = relayRooms.get(code);
+    if (!room || socket.data.relayName !== room.hostName) return;
+    const active = PLAYERS.filter(name => room.players[name]);
+    if (active.length < 3) {
+      socket.emit('relay:error', '최소 3명이 입장해야 시작할 수 있습니다.');
+      return;
+    }
+    room.status = 'sentence';
+    room.roundPlayers = [...active];
+    room.order = shuffle(active);
+    room.sentences = {};
+    room.drawings = {};
+    room.guesses = {};
+    room.submitted = [];
+    room.result = null;
+    relayBroadcast(room);
+    relaySendTasks(room);
+  });
+
+  socket.on('relay:sentence', ({ code, text }, cb) => {
+    const room = relayRooms.get(String(code || '').toUpperCase());
+    const name = socket.data.relayName;
+    const clean = String(text || '').trim().replace(/\s+/g, ' ');
+    if (!room || room.status !== 'sentence' || !room.roundPlayers.includes(name)) return cb?.({ ok:false, error:'지금은 문장 작성 단계가 아닙니다.' });
+    if (!clean) return cb?.({ ok:false, error:'문장을 입력하세요.' });
+    if (clean.length > 80) return cb?.({ ok:false, error:'80자 이내로 입력하세요.' });
+    if (room.sentences[name]) return cb?.({ ok:false, error:'이미 제출했습니다.' });
+    room.sentences[name] = clean;
+    room.submitted.push(name);
+    cb?.({ ok:true });
+    relayBroadcast(room);
+    relayMaybeAdvance(room);
+  });
+
+  socket.on('relay:drawing', ({ code, image }, cb) => {
+    const room = relayRooms.get(String(code || '').toUpperCase());
+    const name = socket.data.relayName;
+    if (!room || room.status !== 'draw' || !room.roundPlayers.includes(name)) return cb?.({ ok:false, error:'지금은 그림 단계가 아닙니다.' });
+    if (typeof image !== 'string' || !image.startsWith('data:image/')) return cb?.({ ok:false, error:'그림 데이터가 올바르지 않습니다.' });
+    if (image.length > 1800000) return cb?.({ ok:false, error:'그림 데이터가 너무 큽니다.' });
+    const task = relayTaskFor(room, name);
+    if (!task?.starter) return cb?.({ ok:false, error:'그림 대상을 찾을 수 없습니다.' });
+    room.drawings[task.starter] = { artist:name, data:image };
+    if (!room.submitted.includes(name)) room.submitted.push(name);
+    cb?.({ ok:true });
+    relayBroadcast(room);
+    relayMaybeAdvance(room);
+  });
+
+  socket.on('relay:guess', ({ code, text }, cb) => {
+    const room = relayRooms.get(String(code || '').toUpperCase());
+    const name = socket.data.relayName;
+    const clean = String(text || '').trim().replace(/\s+/g, ' ');
+    if (!room || room.status !== 'guess' || !room.roundPlayers.includes(name)) return cb?.({ ok:false, error:'지금은 해석 단계가 아닙니다.' });
+    if (!clean) return cb?.({ ok:false, error:'그림을 보고 문장을 입력하세요.' });
+    if (clean.length > 80) return cb?.({ ok:false, error:'80자 이내로 입력하세요.' });
+    const task = relayTaskFor(room, name);
+    if (!task?.starter) return cb?.({ ok:false, error:'그림 대상을 찾을 수 없습니다.' });
+    room.guesses[task.starter] = { guesser:name, text:clean };
+    if (!room.submitted.includes(name)) room.submitted.push(name);
+    cb?.({ ok:true });
+    relayBroadcast(room);
+    relayMaybeAdvance(room);
+  });
+
+  socket.on('relay:restart', ({ code }) => {
+    const room = relayRooms.get(code);
+    if (!room || socket.data.relayName !== room.hostName) return;
+    room.status = 'lobby';
+    room.roundPlayers = [];
+    room.order = [];
+    room.sentences = {};
+    room.drawings = {};
+    room.guesses = {};
+    room.submitted = [];
+    room.result = null;
+    relayBroadcast(room);
+  });
+
+  socket.on('disconnect', () => {
+    const { relayCode: code, relayName: name } = socket.data || {};
+    const room = relayRooms.get(code);
+    if (!room || !name) return;
+    if (room.players[name] === socket.id) delete room.players[name];
+    if (name === room.hostName) {
+      const remaining = PLAYERS.filter(n => room.players[n]);
+      if (remaining.length) room.hostName = remaining[0];
+    }
+    relayBroadcast(room);
+    relayMaybeAdvance(room);
+  });
+});
+
+function relayJoin(socket, room, name, cb) {
+  const oldId = room.players[name];
+  if (oldId && oldId !== socket.id) {
+    const oldSocket = io.sockets.sockets.get(oldId);
+    if (oldSocket) oldSocket.disconnect(true);
+  }
+  room.players[name] = socket.id;
+  socket.data.relayCode = room.code;
+  socket.data.relayName = name;
+  socket.join('relay:' + room.code);
+  cb?.({ ok:true, code:room.code, hostName:room.hostName, name });
+  relayBroadcast(room);
+  if (room.status !== 'lobby' && room.roundPlayers.includes(name)) {
+    socket.emit('relay:task', relayTaskFor(room, name));
+  }
+}
+
 server.listen(PORT, () => console.log(`Weekly Coordination Sheet running on http://localhost:${PORT}`));
