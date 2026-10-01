@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
+const { questionBank: TELEPATHY_QUESTION_BANK, allQuestions: TELEPATHY_ALL_QUESTIONS } = require('./telepathy-questions');
 
 const app = express();
 const server = http.createServer(app);
@@ -650,7 +651,7 @@ function relayJoin(socket, room, name, cb) {
 
 const crypto = require('crypto');
 const telepathyRooms = new Map();
-const TELEPATHY_BANK = {
+const TELEPATHY_BANK_LEGACY = {
   random:['야식 하면 떠오르는 음식','여름 하면 떠오르는 것','주말 하면 떠오르는 장소','빨간색 하면 떠오르는 것','비 오는 날 먹고 싶은 음식','여행 하면 떠오르는 나라','편의점 하면 떠오르는 음식','겨울 하면 떠오르는 음식','스트레스 받을 때 하고 싶은 것','카페 하면 떠오르는 메뉴','영화관 하면 떠오르는 간식','휴가 하면 떠오르는 것'],
   food:['야식 하면 떠오르는 음식','배달 음식 하면 떠오르는 메뉴','회식 하면 떠오르는 음식','편의점 하면 떠오르는 음식','겨울 하면 떠오르는 국물 음식','치킨 하면 떠오르는 브랜드','분식 하면 떠오르는 메뉴','카페 하면 떠오르는 메뉴','아침 하면 떠오르는 음식','술안주 하면 떠오르는 음식'],
   daily:['주말 하면 떠오르는 장소','아침에 가장 먼저 하는 것','잠 안 올 때 하는 것','휴가 하면 떠오르는 것','비 오는 날 하고 싶은 것','스트레스 받을 때 하고 싶은 것','집에 가면 가장 먼저 하는 것','택배 하면 떠오르는 것','퇴근 후 가장 하고 싶은 것'],
@@ -660,8 +661,8 @@ const TELEPATHY_BANK = {
 };
 function tpCode(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();while(telepathyRooms.has(c));return c}
 function tpNorm(v=''){return String(v).trim().toLowerCase().replace(/[\s!！?？.,，。~～·\-_]/g,'')}
-function tpSettings(x={}){const count=Math.max(1,Math.min(10,Number(x.count)||5));const timer=[0,10,15,20].includes(Number(x.timer))?Number(x.timer):15;const category=['random','food','daily','company','love','balance','custom'].includes(x.category)?x.category:'random';return{count,timer,category}}
-function tpQuestions(s,custom=[]){if(s.category==='custom'){const q=custom.map(v=>String(v).trim()).filter(Boolean).slice(0,10);return (q.length?q:TELEPATHY_BANK.random).slice(0,s.count)}const base=[...(TELEPATHY_BANK[s.category]||TELEPATHY_BANK.random)];shuffle(base);const out=[];while(out.length<s.count)out.push(base[out.length%base.length]);return out}
+function tpSettings(x={}){const count=Math.max(1,Math.min(10,Number(x.count)||5));const timer=[0,10,15,20].includes(Number(x.timer))?Number(x.timer):15;const category=['random','food','daily','company','love','balance','travel','taste','memory','content','imagination','custom'].includes(x.category)?x.category:'random';return{count,timer,category}}
+function tpQuestions(s,custom=[]){if(s.category==='custom'){const q=custom.map(v=>String(v).trim()).filter(Boolean).slice(0,10);return (q.length?q:TELEPATHY_ALL_QUESTIONS).slice(0,s.count)}const base=[...(s.category==='random'?TELEPATHY_ALL_QUESTIONS:(TELEPATHY_QUESTION_BANK[s.category]||TELEPATHY_ALL_QUESTIONS))];shuffle(base);return base.slice(0,s.count)}
 function tpPublic(r){return{code:r.code,hostId:r.hostId,phase:r.phase,settings:r.settings,currentIndex:r.currentIndex,currentQuestion:r.questions[r.currentIndex]||null,totalQuestions:r.questions.length,players:r.players.map(p=>({id:p.id,name:p.name,score:p.score,connected:p.connected,submitted:!!r.answers[p.id],streak:p.streak})),roundResult:r.roundResult,history:r.history,final:r.final||null}}
 function tpEmit(r){io.to('telepathy:'+r.code).emit('telepathy:update',tpPublic(r))}
 function tpCalc(r){const active=r.players.filter(p=>r.answers[p.id]);const groups=new Map();for(const p of active){const a=r.answers[p.id].answer,k=tpNorm(a);if(!k)continue;if(!groups.has(k))groups.set(k,{display:a.trim(),playerIds:[]});groups.get(k).playerIds.push(p.id)}const matched=new Set();for(const g of groups.values())if(g.playerIds.length>=2)g.playerIds.forEach(id=>matched.add(id));r.players.forEach(p=>{if(matched.has(p.id)){p.score++;p.streak++}else if(r.answers[p.id])p.streak=0});const perfect=active.length>=2&&groups.size===1;if(perfect)r.perfectCount++;for(const g of groups.values())if(g.playerIds.length>=2)for(let i=0;i<g.playerIds.length;i++)for(let j=i+1;j<g.playerIds.length;j++){const k=[g.playerIds[i],g.playerIds[j]].sort().join('|');r.pairs[k]=(r.pairs[k]||0)+1}for(let i=0;i<active.length;i++)for(let j=i+1;j<active.length;j++){const k=[active[i].id,active[j].id].sort().join('|');r.pairRounds[k]=(r.pairRounds[k]||0)+1}r.roundResult={groups:[...groups.values()].map(g=>({answer:g.display,playerIds:g.playerIds,matched:g.playerIds.length>=2})).sort((a,b)=>b.playerIds.length-a.playerIds.length),perfect,matchedIds:[...matched]};r.history.push({question:r.questions[r.currentIndex],...r.roundResult})}
