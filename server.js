@@ -9,7 +9,15 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-const PLAYERS = ['파랑새', '핫걸 지니', '아르미', '나애 정하', '벼리', '리하맘'];
+function validName(name) { return !!name && !/[<>&"'`]/.test(name) && !['__proto__','constructor','prototype'].includes(name); }
+function freshNames(room, channel) {
+  io.to(channel).emit('session:reset', {code:room.code});
+  io.in(channel).socketsLeave(channel);
+  room.players = Array.isArray(room.players) ? [] : Object.create(null);
+  if ('hostName' in room) room.hostName=null;
+  if ('hostId' in room) room.hostId=null;
+}
+app.get('/health', (_,res)=>res.json({ok:true,version:'team-sync-20261002-v3',questions:TELEPATHY_ALL_QUESTIONS.length}));
 const ROUND_COUNTS = { 3: 2, 5: 3, 7: 4 };
 const DISCUSSION_SECONDS = 60;
 const MAX_MESSAGE_LENGTH = 120;
@@ -170,7 +178,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 io.on('connection', socket => {
   socket.on('room:create', ({ name }, cb) => {
     name = String(name || '').trim().slice(0, 20);
-    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
+    if (!validName(name)) return cb?.({ ok:false, error:'이름을 입력하세요. 꺾쇠와 따옴표는 사용할 수 없습니다.' });
     const code = makeCode();
     const room = {
       code,
@@ -201,12 +209,18 @@ io.on('connection', socket => {
   socket.on('room:join', ({ code, name }, cb) => {
     code = String(code || '').trim().toUpperCase();
     name = String(name || '').trim().slice(0, 20);
-    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
+    if (!validName(name)) return cb?.({ ok:false, error:'이름을 입력하세요. 꺾쇠와 따옴표는 사용할 수 없습니다.' });
     const room = rooms.get(code);
     if (!room) return cb?.({ ok: false, error: '방을 찾을 수 없습니다.' });
     join(socket, room, name, cb);
   });
 
+  socket.on('game:restart', ({code},cb)=>{
+    const room=rooms.get(code);
+    if(!room||socket.data.name!==room.hostName||room.status!=='result') return cb?.({ok:false,error:'결과 화면에서 방장만 다시 시작할 수 있습니다.'});
+    room.status='lobby'; room.votes={}; room.results=null;
+    freshNames(room,room.code); cb?.({ok:true});
+  });
   socket.on('game:developerMode', ({ code, enabled }, cb) => {
     const room=rooms.get(String(code||'').toUpperCase());
     if(!room||socket.data.name!==room.hostName||room.status!=='lobby') return cb?.({ok:false,error:'대기실 방장만 변경할 수 있습니다.'});
@@ -401,13 +415,8 @@ io.on('connection', socket => {
 
 function join(socket, room, name, cb) {
   const oldId = room.players[name];
-  if (oldId && oldId !== socket.id) {
-    const oldSocket = io.sockets.sockets.get(oldId);
-    if (oldSocket) {
-      oldSocket.emit('session:replaced');
-      oldSocket.disconnect(true);
-    }
-  }
+  if (oldId && oldId !== socket.id) return cb?.({ok:false,error:'이미 사용 중인 이름입니다. 다른 이름을 입력하세요.'});
+  if (!room.hostName) room.hostName=name;
 
   room.players[name] = socket.id;
   socket.data.roomCode = room.code;
@@ -543,7 +552,7 @@ function relayMaybeAdvance(room) {
 io.on('connection', socket => {
   socket.on('relay:create', ({ name }, cb) => {
     name = String(name || '').trim().slice(0, 20);
-    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
+    if (!validName(name)) return cb?.({ ok:false, error:'이름을 입력하세요. 꺾쇠와 따옴표는 사용할 수 없습니다.' });
     const code = relayCode();
     const room = {
       code,
@@ -565,7 +574,7 @@ io.on('connection', socket => {
   socket.on('relay:join', ({ code, name }, cb) => {
     code = String(code || '').trim().toUpperCase();
     name = String(name || '').trim().slice(0, 20);
-    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
+    if (!validName(name)) return cb?.({ ok:false, error:'이름을 입력하세요. 꺾쇠와 따옴표는 사용할 수 없습니다.' });
     const room = relayRooms.get(code);
     if (!room) return cb?.({ ok: false, error: '방을 찾을 수 없습니다.' });
     relayJoin(socket, room, name, cb);
@@ -669,7 +678,7 @@ io.on('connection', socket => {
     room.guesses = {};
     room.submitted = [];
     room.result = null;
-    relayBroadcast(room);
+    freshNames(room,'relay:'+room.code);
   });
 
   socket.on('disconnect', () => {
@@ -688,10 +697,8 @@ io.on('connection', socket => {
 
 function relayJoin(socket, room, name, cb) {
   const oldId = room.players[name];
-  if (oldId && oldId !== socket.id) {
-    const oldSocket = io.sockets.sockets.get(oldId);
-    if (oldSocket) oldSocket.disconnect(true);
-  }
+  if (oldId && oldId !== socket.id) return cb?.({ok:false,error:'이미 사용 중인 이름입니다. 다른 이름을 입력하세요.'});
+  if (!room.hostName) room.hostName=name;
   room.players[name] = socket.id;
   socket.data.relayCode = room.code;
   socket.data.relayName = name;
@@ -722,61 +729,8 @@ function tpBuildDeck(category){
   return shuffle(base);
 }
 function tpQuestions(room,s,custom=[]){
-  if(s.category==='custom'){
-    const q=custom.map(v=>String(v).trim()).filter(Boolean).slice(0,10);
-    return (q.length?q:shuffle(TELEPATHY_ALL_QUESTIONS)).slice(0,s.count);
-  }
-  if(!room.questionDecks) room.questionDecks={};
-  if(!room.recentQuestions) room.recentQuestions={};
-
-  if(s.category==='random'){
-    const recent=new Set(room.recentQuestions.random||[]);
-    const categories=Object.keys(TELEPATHY_QUESTION_BANK);
-    const picked=[];
-    let guard=0;
-    while(picked.length<s.count && guard<50){
-      guard++;
-      let added=0;
-      for(const cat of shuffle(categories)){
-        const pool=shuffle((TELEPATHY_QUESTION_BANK[cat]||[]).filter(q=>!recent.has(q)&&!picked.includes(q)));
-        if(pool.length){
-          picked.push(pool[0]);
-          added++;
-          if(picked.length>=s.count) break;
-        }
-      }
-      if(!added){
-        recent.clear();
-      }
-    }
-    if(picked.length<s.count){
-      for(const q of shuffle(TELEPATHY_ALL_QUESTIONS)){
-        if(!picked.includes(q)) picked.push(q);
-        if(picked.length>=s.count) break;
-      }
-    }
-    room.recentQuestions.random=[...picked,...(room.recentQuestions.random||[])].filter((q,i,a)=>a.indexOf(q)===i).slice(0,200);
-    return picked;
-  }
-
-  const key=s.category;
-  let deck=room.questionDecks[key]||[];
-  const recent=new Set(room.recentQuestions[key]||[]);
-  if(deck.length<s.count){
-    const existing=new Set(deck);
-    for(const q of tpBuildDeck(key).filter(q=>!recent.has(q))){
-      if(!existing.has(q)){deck.push(q);existing.add(q);}
-    }
-    if(deck.length<s.count){
-      for(const q of tpBuildDeck(key)){
-        if(!existing.has(q)){deck.push(q);existing.add(q);}
-      }
-    }
-  }
-  const picked=deck.splice(0,s.count);
-  room.questionDecks[key]=deck;
-  room.recentQuestions[key]=[...picked,...(room.recentQuestions[key]||[])].filter((q,i,a)=>a.indexOf(q)===i).slice(0,100);
-  return picked;
+  const pool=s.category==='custom' ? custom.map(v=>String(v).trim()).filter(Boolean).slice(0,10) : (s.category==='random'?TELEPATHY_ALL_QUESTIONS:(TELEPATHY_QUESTION_BANK[s.category]||TELEPATHY_ALL_QUESTIONS));
+  return require('./question-deck').drawQuestions(room,pool.length?pool:TELEPATHY_ALL_QUESTIONS,s.count,shuffle);
 }
 function tpPublic(r){return{code:r.code,hostId:r.hostId,phase:r.phase,settings:r.settings,currentIndex:r.currentIndex,currentQuestion:r.questions[r.currentIndex]||null,totalQuestions:r.questions.length,players:r.players.map(p=>({id:p.id,name:p.name,score:p.score,connected:p.connected,submitted:!!r.answers[p.id],streak:p.streak})),roundResult:r.roundResult,history:r.history,final:r.final||null,developerMode:!!r.developerMode}}
 function tpEmit(r){io.to('telepathy:'+r.code).emit('telepathy:update',tpPublic(r))}
@@ -784,15 +738,15 @@ function tpCalc(r){const active=r.players.filter(p=>r.answers[p.id]);const group
 function tpFinal(r){const ranking=[...r.players].sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name)).map((p,i)=>({rank:i+1,id:p.id,name:p.name,score:p.score}));const compatibility=[];for(const [k,matches] of Object.entries(r.pairs)){const[a,b]=k.split('|'),total=r.pairRounds[k]||0,pa=r.players.find(p=>p.id===a),pb=r.players.find(p=>p.id===b);if(pa&&pb&&total)compatibility.push({a:{id:a,name:pa.name},b:{id:b,name:pb.name},matches,total,percent:Math.round(matches/total*100)})}compatibility.sort((a,b)=>b.percent-a.percent||b.matches-a.matches);return{ranking,compatibility,perfectCount:r.perfectCount}}
 function tpReveal(r){if(r.phase!=='question')return;r.phase='reveal';tpCalc(r);tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:revealed',r.roundResult)}
 io.on('connection',socket=>{
-  socket.on('telepathy:create',({name},cb)=>{const code=tpCode(),playerId=crypto.randomUUID();const room={code,hostId:playerId,phase:'lobby',settings:{count:5,timer:15,category:'random'},questions:[],currentIndex:0,players:[{id:playerId,name:String(name||'방장').trim().slice(0,12),score:0,streak:0,connected:true,socketId:socket.id}],answers:{},roundResult:null,history:[],perfectCount:0,pairs:{},pairRounds:{},final:null,questionDecks:{},recentQuestions:{}};telepathyRooms.set(code,room);socket.join('telepathy:'+code);socket.data.telepathyCode=code;socket.data.telepathyPlayerId=playerId;cb?.({ok:true,code,playerId});tpEmit(room)});
-  socket.on('telepathy:join',({code,name,playerId},cb)=>{const room=telepathyRooms.get(String(code||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(!['lobby','question'].includes(room.phase))return cb?.({ok:false,error:'현재 참가할 수 없는 단계입니다.'});p={id:crypto.randomUUID(),name:String(name||'플레이어').trim().slice(0,12),score:0,streak:0,connected:true,socketId:socket.id};room.players.push(p)}socket.join('telepathy:'+room.code);socket.data.telepathyCode=room.code;socket.data.telepathyPlayerId=p.id;cb?.({ok:true,code:room.code,playerId:p.id});tpEmit(room)});
+  socket.on('telepathy:create',({name},cb)=>{name=String(name||'').trim().slice(0,12);if(!validName(name))return cb?.({ok:false,error:'이름을 입력하세요.'});const code=tpCode(),playerId=crypto.randomUUID();const room={code,hostId:playerId,phase:'lobby',settings:{count:5,timer:15,category:'random'},questions:[],currentIndex:0,players:[{id:playerId,name:String(name||'방장').trim().slice(0,12),score:0,streak:0,connected:true,socketId:socket.id}],answers:{},roundResult:null,history:[],perfectCount:0,pairs:{},pairRounds:{},final:null,questionDecks:{},recentQuestions:{}};telepathyRooms.set(code,room);socket.join('telepathy:'+code);socket.data.telepathyCode=code;socket.data.telepathyPlayerId=playerId;cb?.({ok:true,code,playerId});tpEmit(room)});
+  socket.on('telepathy:join',({code,name,playerId},cb)=>{name=String(name||'').trim().slice(0,12);if(!validName(name))return cb?.({ok:false,error:'이름을 입력하세요.'});const room=telepathyRooms.get(String(code||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(!['lobby','question'].includes(room.phase))return cb?.({ok:false,error:'현재 참가할 수 없는 단계입니다.'});p={id:crypto.randomUUID(),name:String(name||'플레이어').trim().slice(0,12),score:0,streak:0,connected:true,socketId:socket.id};room.players.push(p)}if(!room.hostId)room.hostId=p.id;socket.join('telepathy:'+room.code);socket.data.telepathyCode=room.code;socket.data.telepathyPlayerId=p.id;cb?.({ok:true,code:room.code,playerId:p.id});tpEmit(room)});
   socket.on('telepathy:developerMode',({enabled},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId||r.phase!=='lobby')return cb?.({ok:false,error:'대기실 방장만 변경할 수 있습니다.'});r.developerMode=!!enabled;tpEmit(r);cb?.({ok:true})});
-  socket.on('telepathy:start',({settings,customQuestions=[]},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return cb?.({ok:false,error:'방장만 시작할 수 있습니다.'});if(r.players.filter(p=>p.connected).length<(r.developerMode?1:2))return cb?.({ok:false,error:r.developerMode?'개발자 모드에서는 혼자 시작할 수 있습니다.':'최소 2명 이상 필요합니다.'});r.settings=tpSettings(settings);r.questions=tpQuestions(r,r.settings,customQuestions);r.currentIndex=0;r.phase='question';r.answers={};r.roundResult=null;r.history=[];r.perfectCount=0;r.pairs={};r.pairRounds={};r.final=null;r.players.forEach(p=>{p.score=0;p.streak=0});cb?.({ok:true});tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:round-start',{duration:r.settings.timer})});
+  socket.on('telepathy:start',({settings,customQuestions=[],seenQuestions=[]},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return cb?.({ok:false,error:'방장만 시작할 수 있습니다.'});if(r.players.filter(p=>p.connected).length<(r.developerMode?1:2))return cb?.({ok:false,error:r.developerMode?'개발자 모드에서는 혼자 시작할 수 있습니다.':'최소 2명 이상 필요합니다.'});r.usedQuestions ||= new Set();const known=new Set(TELEPATHY_ALL_QUESTIONS);if(Array.isArray(seenQuestions))seenQuestions.slice(0,1000).filter(q=>known.has(q)).forEach(q=>r.usedQuestions.add(q));r.settings=tpSettings(settings);r.questions=tpQuestions(r,r.settings,customQuestions);r.currentIndex=0;r.phase='question';r.answers={};r.roundResult=null;r.history=[];r.perfectCount=0;r.pairs={};r.pairRounds={};r.final=null;r.players.forEach(p=>{p.score=0;p.streak=0});cb?.({ok:true});io.to('telepathy:'+r.code).emit('telepathy:deck',{used:[...r.usedQuestions]});tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:round-start',{duration:r.settings.timer})});
   socket.on('telepathy:answer',({answer},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode),pid=socket.data.telepathyPlayerId;if(!r||r.phase!=='question')return;if(!String(answer||'').trim())return cb?.({ok:false,error:'답을 입력해주세요.'});r.answers[pid]={answer:String(answer).trim().slice(0,30)};cb?.({ok:true});tpEmit(r);const active=r.players.filter(p=>p.connected);if(active.length>=(r.developerMode?1:2)&&active.every(p=>r.answers[p.id]))tpReveal(r)});
   socket.on('telepathy:reveal',(_,cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(r&&socket.data.telepathyPlayerId===r.hostId)tpReveal(r);cb?.({ok:true})});
   socket.on('telepathy:next',(_,cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId||r.phase!=='reveal')return;if(r.currentIndex>=r.questions.length-1){r.phase='finished';r.final=tpFinal(r);tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:finished',r.final);return cb?.({ok:true,finished:true})}r.currentIndex++;r.phase='question';r.answers={};r.roundResult=null;tpEmit(r);io.to('telepathy:'+r.code).emit('telepathy:round-start',{duration:r.settings.timer});cb?.({ok:true})});
   socket.on('telepathy:stop',(_,cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return cb?.({ok:false,error:'방장만 게임을 중단할 수 있습니다.'});r.phase='lobby';r.answers={};r.roundResult=null;r.currentIndex=0;r.final=null;r.questions=[];r.players.forEach(p=>{p.score=0;p.streak=0});tpEmit(r);cb?.({ok:true})});
-  socket.on('telepathy:restart',(_,cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return;r.phase='lobby';r.answers={};r.roundResult=null;r.currentIndex=0;r.final=null;tpEmit(r);cb?.({ok:true})});
+  socket.on('telepathy:restart',(_,cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return;r.phase='lobby';r.answers={};r.roundResult=null;r.currentIndex=0;r.final=null;freshNames(r,'telepathy:'+r.code);cb?.({ok:true})});
   socket.on('telepathy:kick',({playerId},cb)=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r||socket.data.telepathyPlayerId!==r.hostId)return;const p=r.players.find(x=>x.id===playerId);if(p&&p.id!==r.hostId){io.to(p.socketId).emit('telepathy:kicked');r.players=r.players.filter(x=>x.id!==playerId);tpEmit(r)}cb?.({ok:true})});
   socket.on('disconnect',()=>{const r=telepathyRooms.get(socket.data.telepathyCode);if(!r)return;const p=r.players.find(x=>x.id===socket.data.telepathyPlayerId);if(p&&p.socketId===socket.id){p.connected=false;p.socketId=null}if(r.hostId===socket.data.telepathyPlayerId){const n=r.players.find(x=>x.connected);if(n)r.hostId=n.id}tpEmit(r)})
 });
@@ -825,7 +779,7 @@ function setupTruthGame(io){
   function finish(room){const ranking=[...room.players].sort((a,b)=>b.score-a.score||b.fooledTotal-a.fooledTotal).map((p,i)=>({rank:i+1,id:p.id,name:p.name,score:p.score,correctTotal:p.correctTotal,fooledTotal:p.fooledTotal,fooledTimes:p.fooledTimes}));const byCorrect=[...room.players].sort((a,b)=>b.correctTotal-a.correctTotal)[0],byLie=[...room.players].sort((a,b)=>b.fooledTotal-a.fooledTotal)[0],byCaught=[...room.players].sort((a,b)=>b.fooledTimes-a.fooledTimes)[0];let best=null;for(const h of room.history){const f=h.bestFake;if(f&&(!best||f.votes>best.votes))best={text:f.text,votes:f.votes,authorName:f.authorName}}room.final={ranking,awards:{brain:byCorrect?{name:byCorrect.name,value:byCorrect.correctTotal}:null,liar:byLie?{name:byLie.name,value:byLie.fooledTotal}:null,fish:byCaught?{name:byCaught.name,value:byCaught.fooledTimes}:null,bestFake:best}};room.phase='finished';emitRoom(room);io.to('truth:'+room.code).emit('truth:game:finished',room.final)}
   io.on('connection',socket=>{
     socket.on('truth:room:create',({name},cb)=>{const room={code:code(),hostId:null,phase:'lobby',settings:{count:5,fakeTimer:30,voteTimer:15,category:'random'},questions:[],index:0,players:[],fakeAnswers:{},votes:{},options:[],result:null,history:[],final:null,timer:null};const p={id:uid(),name:String(name||'방장').trim().slice(0,12),score:0,connected:true,socketId:socket.id,correctTotal:0,fooledTotal:0,fooledTimes:0,correctStreak:0,lieStreak:0};room.hostId=p.id;room.players.push(p);rooms.set(room.code,room);socket.join('truth:'+room.code);socket.data.truthCode=room.code;socket.data.truthPlayerId=p.id;cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
-    socket.on('truth:room:join',({code:raw,name,playerId},cb)=>{const room=rooms.get(String(raw||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(room.phase!=='lobby')return cb?.({ok:false,error:'게임 시작 후에는 새로 참가할 수 없습니다.'});p={id:uid(),name:String(name||'플레이어').trim().slice(0,12),score:0,connected:true,socketId:socket.id,correctTotal:0,fooledTotal:0,fooledTimes:0,correctStreak:0,lieStreak:0};room.players.push(p)}socket.join('truth:'+room.code);socket.data.truthCode=room.code;socket.data.truthPlayerId=p.id;cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
+    socket.on('truth:room:join',({code:raw,name,playerId},cb)=>{name=String(name||'').trim().slice(0,12);if(!validName(name))return cb?.({ok:false,error:'이름을 입력하세요.'});const room=rooms.get(String(raw||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(room.phase!=='lobby')return cb?.({ok:false,error:'게임 시작 후에는 새로 참가할 수 없습니다.'});p={id:uid(),name:String(name||'플레이어').trim().slice(0,12),score:0,connected:true,socketId:socket.id,correctTotal:0,fooledTotal:0,fooledTimes:0,correctStreak:0,lieStreak:0};room.players.push(p)}socket.join('truth:'+room.code);socket.data.truthCode=room.code;socket.data.truthPlayerId=p.id;cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
     socket.on('truth:game:start',({settings},cb)=>{const room=rooms.get(socket.data?.truthCode);if(!room||room.hostId!==socket.data.truthPlayerId)return cb?.({ok:false,error:'방장만 시작할 수 있습니다.'});if(active(room).length<3)return cb?.({ok:false,error:'최소 3명 이상 필요합니다.'});room.settings=sanitize(settings);room.questions=buildQuestions(room.settings);room.index=0;room.history=[];room.final=null;room.players.forEach(p=>Object.assign(p,{score:0,correctTotal:0,fooledTotal:0,fooledTimes:0,correctStreak:0,lieStreak:0}));startFake(room);cb?.({ok:true})});
     socket.on('truth:fake:submit',({text},cb)=>{const room=rooms.get(socket.data?.truthCode),pid=socket.data?.truthPlayerId;if(!room||room.phase!=='fake')return cb?.({ok:false,error:'가짜 답 작성 시간이 아닙니다.'});const v=String(text||'').trim().slice(0,30);if(v.length<2)return cb?.({ok:false,error:'가짜 답은 2자 이상 입력해주세요.'});const q=room.questions[room.index];if(norm(v)===norm(q.a))return cb?.({ok:false,error:'진짜 정답과 같은 답은 사용할 수 없습니다.'});if(Object.entries(room.fakeAnswers).some(([id,x])=>id!==pid&&norm(x.text)===norm(v)))return cb?.({ok:false,error:'다른 참가자가 이미 같은 답을 냈습니다. 다른 답을 써주세요.'});room.fakeAnswers[pid]={text:v};cb?.({ok:true});emitRoom(room);if(active(room).length>=3&&active(room).every(p=>room.fakeAnswers[p.id]))startVote(room)});
     socket.on('truth:vote:submit',({optionId},cb)=>{const room=rooms.get(socket.data?.truthCode),pid=socket.data?.truthPlayerId;if(!room||room.phase!=='vote')return cb?.({ok:false,error:'투표 시간이 아닙니다.'});const o=room.options.find(x=>x.id===optionId);if(!o)return cb?.({ok:false,error:'선택지를 찾을 수 없습니다.'});if(o.authorId===pid)return cb?.({ok:false,error:'내가 만든 가짜 답에는 투표할 수 없습니다.'});room.votes[pid]=optionId;cb?.({ok:true});emitRoom(room);if(active(room).length>=3&&active(room).every(p=>room.votes[p.id]))reveal(room)});
@@ -873,7 +827,7 @@ function setupMafiaGame(io){
     let roster=room.players.filter(p=>p.connected||p.bot);
     const n=roster.length;
     let roles=[];
-    if(n<=4) roles=['MAFIA','DOCTOR','CITIZEN','CITIZEN'];
+    if(n<=4) roles=['MAFIA','DOCTOR','POLICE','CITIZEN'];
     else if(n===5) roles=['MAFIA','DOCTOR','POLICE','CITIZEN','CITIZEN'];
     else roles=['MAFIA','DOCTOR','POLICE','CITIZEN','CITIZEN','CITIZEN'];
     roles=shuffle(roles.slice(0,n));
@@ -975,21 +929,21 @@ function setupMafiaGame(io){
   }
   function nextDay(room){if(room.phase!=='MORNING')return;room.round++;startDay(room)}
   io.on('connection',socket=>{
-    socket.on('mafia:create',({name},cb)=>{const p={id:uid(),name:String(name||'방장').trim().slice(0,12),bot:false,connected:true,alive:true,role:null,socketId:socket.id};const room={code:code(),hostId:p.id,phase:'LOBBY',round:1,players:[p],developerMode:false,votes:{},executeVotes:{},night:{},nightResults:{},actionDone:{},candidate:null,winner:null,log:[],timer:null,timerEndsAt:null};rooms.set(room.code,room);socket.data.mafiaCode=room.code;socket.data.mafiaPlayerId=p.id;socket.join('mafia:'+room.code);cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
-    socket.on('mafia:join',({code:raw,name,playerId},cb)=>{const room=rooms.get(String(raw||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId&&!x.bot);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(room.phase!=='LOBBY')return cb?.({ok:false,error:'게임 시작 후에는 새로 참가할 수 없습니다.'});if(room.players.filter(x=>!x.bot).length>=6)return cb?.({ok:false,error:'최대 6명까지 참가할 수 있습니다.'});p={id:uid(),name:String(name||'플레이어').trim().slice(0,12),bot:false,connected:true,alive:true,role:null,socketId:socket.id};room.players.push(p)}socket.data.mafiaCode=room.code;socket.data.mafiaPlayerId=p.id;socket.join('mafia:'+room.code);cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
+    socket.on('mafia:create',({name},cb)=>{name=String(name||'').trim().slice(0,12);if(!validName(name))return cb?.({ok:false,error:'이름을 입력하세요.'});const p={id:uid(),name:String(name||'방장').trim().slice(0,12),bot:false,connected:true,alive:true,role:null,socketId:socket.id};const room={code:code(),hostId:p.id,phase:'LOBBY',round:1,players:[p],developerMode:false,votes:{},executeVotes:{},night:{},nightResults:{},actionDone:{},candidate:null,winner:null,log:[],timer:null,timerEndsAt:null};rooms.set(room.code,room);socket.data.mafiaCode=room.code;socket.data.mafiaPlayerId=p.id;socket.join('mafia:'+room.code);cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
+    socket.on('mafia:join',({code:raw,name,playerId},cb)=>{name=String(name||'').trim().slice(0,12);if(!validName(name))return cb?.({ok:false,error:'이름을 입력하세요.'});const room=rooms.get(String(raw||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId&&!x.bot);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(room.phase!=='LOBBY')return cb?.({ok:false,error:'게임 시작 후에는 새로 참가할 수 없습니다.'});room.players=room.players.filter(x=>x.connected||x.bot);if(room.players.filter(x=>!x.bot).length>=6)return cb?.({ok:false,error:'최대 6명까지 참가할 수 있습니다.'});p={id:uid(),name:String(name||'플레이어').trim().slice(0,12),bot:false,connected:true,alive:true,role:null,socketId:socket.id};room.players.push(p)}if(!room.hostId)room.hostId=p.id;socket.data.mafiaCode=room.code;socket.data.mafiaPlayerId=p.id;socket.join('mafia:'+room.code);cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
     socket.on('mafia:developerMode',({enabled},cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId||room.phase!=='LOBBY')return cb?.({ok:false,error:'대기실 방장만 변경할 수 있습니다.'});room.developerMode=!!enabled;room.players=room.players.filter(p=>!p.bot);if(room.developerMode)ensureDevBots(room);emitRoom(room);cb?.({ok:true})});
     socket.on('mafia:start',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId)return cb?.({ok:false,error:'방장만 시작할 수 있습니다.'});if(room.developerMode)ensureDevBots(room);const n=room.players.filter(p=>p.connected||p.bot).length;if(n<4||n>6)return cb?.({ok:false,error:'4~6명에서 시작할 수 있습니다.'});assignRoles(room);resetRound(room);room.round=1;room.winner=null;room.log=[];room.phase='ROLE';emitRoom(room);cb?.({ok:true})});
     socket.on('mafia:role:ready',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.phase!=='ROLE')return;room.actionDone[socket.data.mafiaPlayerId]=true;const humans=connected(room);if(room.developerMode||humans.every(p=>room.actionDone[p.id]))startDay(room);cb?.({ok:true})});
-    socket.on('mafia:day:skip',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)startVote(room);cb?.({ok:true})});
+    socket.on('mafia:day:skip',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.phase==='DAY'&&room.hostId===socket.data.mafiaPlayerId)startVote(room);cb?.({ok:true})});
     socket.on('mafia:vote',({targetId},cb)=>{const room=rooms.get(socket.data.mafiaCode),pid=socket.data.mafiaPlayerId;if(!room||room.phase!=='VOTE')return cb?.({ok:false,error:'지금은 투표 단계가 아닙니다.'});const voter=room.players.find(p=>p.id===pid),target=room.players.find(p=>p.id===targetId&&p.alive);if(!voter?.alive||!target||target.id===pid)return cb?.({ok:false,error:'선택할 수 없는 대상입니다.'});room.votes[pid]=targetId;emitRoom(room);cb?.({ok:true});const needed=alive(room).filter(p=>!p.bot);if(needed.every(p=>room.votes[p.id]))finishVote(room)});
-    socket.on('mafia:vote:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)finishVote(room);cb?.({ok:true})});
-    socket.on('mafia:defense:skip',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)startExecute(room);cb?.({ok:true})});
+    socket.on('mafia:vote:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.phase==='VOTE'&&room.hostId===socket.data.mafiaPlayerId)finishVote(room);cb?.({ok:true})});
+    socket.on('mafia:defense:skip',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.phase==='DEFENSE'&&room.hostId===socket.data.mafiaPlayerId)startExecute(room);cb?.({ok:true})});
     socket.on('mafia:execute',({yes},cb)=>{const room=rooms.get(socket.data.mafiaCode),pid=socket.data.mafiaPlayerId;if(!room||room.phase!=='EXECUTE')return cb?.({ok:false,error:'처형 투표 단계가 아닙니다.'});const p=room.players.find(x=>x.id===pid);if(!p?.alive||pid===room.candidate)return cb?.({ok:false,error:'투표할 수 없습니다.'});room.executeVotes[pid]=!!yes;emitRoom(room);cb?.({ok:true});const needed=alive(room).filter(p=>!p.bot&&p.id!==room.candidate);if(needed.every(p=>Object.prototype.hasOwnProperty.call(room.executeVotes,p.id)))finishExecute(room)});
-    socket.on('mafia:execute:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)finishExecute(room);cb?.({ok:true})});
+    socket.on('mafia:execute:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.phase==='EXECUTE'&&room.hostId===socket.data.mafiaPlayerId)finishExecute(room);cb?.({ok:true})});
     socket.on('mafia:night',({kind,targetId},cb)=>{const room=rooms.get(socket.data.mafiaCode),pid=socket.data.mafiaPlayerId;if(!room||room.phase!=='NIGHT')return cb?.({ok:false,error:'밤 행동 단계가 아닙니다.'});const p=room.players.find(x=>x.id===pid),t=room.players.find(x=>x.id===targetId&&x.alive);if(!p?.alive||!t)return cb?.({ok:false,error:'대상을 선택할 수 없습니다.'});const allowed={MAFIA:'kill',DOCTOR:'save',POLICE:'inspect'}[p.role];if(allowed!==kind)return cb?.({ok:false,error:'현재 역할로 할 수 없는 행동입니다.'});if(kind!=='save'&&t.id===p.id)return cb?.({ok:false,error:'자기 자신은 선택할 수 없습니다.'});room.night[kind]=targetId;room.actionDone[pid]=true;if(kind==='inspect')room.nightResults[pid]={targetName:t.name,isMafia:t.role==='MAFIA'};emitRoom(room);cb?.({ok:true,result:room.nightResults[pid]||null});const actors=alive(room).filter(x=>!x.bot&&['MAFIA','DOCTOR','POLICE'].includes(x.role));if(actors.every(x=>room.actionDone[x.id]))resolveNight(room)});
-    socket.on('mafia:night:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)resolveNight(room);cb?.({ok:true})});
-    socket.on('mafia:morning:next',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)nextDay(room);cb?.({ok:true})});
-    socket.on('mafia:stop',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId)return cb?.({ok:false,error:'방장만 게임을 중단할 수 있습니다.'});clearTimer(room);room.phase='LOBBY';room.players=room.players.filter(p=>!p.bot);room.players.forEach(p=>{p.alive=true;p.role=null});room.round=1;room.votes={};room.executeVotes={};room.night={};room.nightResults={};room.actionDone={};room.winner=null;room.candidate=null;room.log=[];if(room.developerMode)ensureDevBots(room);emitRoom(room);cb?.({ok:true})});
+    socket.on('mafia:night:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.phase==='NIGHT'&&room.hostId===socket.data.mafiaPlayerId)resolveNight(room);cb?.({ok:true})});
+    socket.on('mafia:morning:next',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.phase==='MORNING'&&room.hostId===socket.data.mafiaPlayerId)nextDay(room);cb?.({ok:true})});
+    socket.on('mafia:stop',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId)return cb?.({ok:false,error:'방장만 게임을 중단할 수 있습니다.'});clearTimer(room);room.phase='LOBBY';room.players=room.players.filter(p=>!p.bot);room.players.forEach(p=>{p.alive=true;p.role=null});room.round=1;room.votes={};room.executeVotes={};room.night={};room.nightResults={};room.actionDone={};room.winner=null;room.candidate=null;room.log=[];freshNames(room,'mafia:'+room.code);cb?.({ok:true})});
     socket.on('disconnect',()=>{const room=rooms.get(socket.data.mafiaCode);if(!room)return;const p=room.players.find(x=>x.id===socket.data.mafiaPlayerId);if(p){p.connected=false;p.socketId=null}if(room.hostId===socket.data.mafiaPlayerId){const n=room.players.find(x=>x.connected&&!x.bot);if(n)room.hostId=n.id}emitRoom(room)})
   });
 }

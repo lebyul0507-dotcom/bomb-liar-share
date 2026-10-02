@@ -134,4 +134,4 @@ $('penBtn').onclick=()=>{mode='pen';toolState()};$('eraserBtn').onclick=()=>{mod
 function toolState(){$('penBtn').classList.toggle('activeTool',mode==='pen');$('eraserBtn').classList.toggle('activeTool',mode==='eraser')}
 $('drawingBtn').onclick=()=>{const image=canvas.toDataURL('image/jpeg',0.72);socket.emit('relay:drawing',{code:roomCode,image},r=>{if(!r.ok)return err(r.error);submitted=true;renderTask()})}
 </script>
-</body></html>
+<script src="/fresh-entry.js"></script></body></html>

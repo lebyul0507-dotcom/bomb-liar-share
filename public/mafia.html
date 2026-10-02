@@ -25,13 +25,13 @@
 <script>
 const socket=io();
 const sheet=document.getElementById('sheet');
-const store={room:null,playerId:localStorage.getItem('mafiaPlayerId')||'',code:localStorage.getItem('mafiaRoomCode')||'',name:localStorage.getItem('mafiaName')||'',timer:null};
+const store={room:null,playerId:'',code:'',name:'',timer:null};
 const q=(s,r=document)=>r.querySelector(s);
 const emit=(name,data={})=>new Promise(resolve=>socket.emit(name,data,resolve));
 const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const me=()=>store.room?.players.find(p=>p.id===store.playerId);
 const isHost=()=>store.room?.hostId===store.playerId;
-function saveSession(code,id,name){store.code=code;store.playerId=id;store.name=name;localStorage.setItem('mafiaRoomCode',code);localStorage.setItem('mafiaPlayerId',id);localStorage.setItem('mafiaName',name)}
+function saveSession(code,id,name){store.code=code;store.playerId=id;store.name=name;}
 function clearSession(){store.room=null;store.code='';store.playerId='';localStorage.removeItem('mafiaRoomCode');localStorage.removeItem('mafiaPlayerId')}
 function modeLabel(){return localStorage.getItem('teamSyncDeveloperMode')==='1'?'🛠 개발자 모드 ON · 혼자 테스트':'일반 멀티플레이 모드'}
 function roleName(r){return {MAFIA:'마피아',DOCTOR:'의사',POLICE:'경찰',CITIZEN:'시민'}[r]||'-'}
@@ -44,7 +44,7 @@ function bindStop(){const b=q('#stopBtn');if(b)b.onclick=async()=>{if(confirm('�
 function playerRows(showRole=false){return store.room.players.map(p=>'<tr class="'+(p.alive?'':'dead')+'"><td>'+esc(p.name)+(p.id===store.room.hostId?'<span class="host">방장</span>':'')+(p.bot?'<span class="bot">TEST</span>':'')+'</td><td>'+(p.connected?'접속':'이탈')+'</td><td>'+(p.alive?'생존':'탈락')+'</td>'+(showRole?'<td>'+roleName(p.role)+'</td>':'')+'</tr>').join('')}
 function renderHome(){
  const dev=localStorage.getItem('teamSyncDeveloperMode')==='1';
- sheet.innerHTML='<section class="entry"><h1>회사 마피아</h1><p>죽이고, 살리고, 조사하고. 4~6명이 함께하는 추리 게임.</p><div class="tabs"><button id="createTab" class="tab active">방 만들기</button><button id="joinTab" class="tab">참가하기</button></div><div class="stack"><input id="name" class="input" maxlength="12" placeholder="이름" value="'+esc(store.name)+'"><div id="codeWrap" class="hidden"><input id="code" class="input" maxlength="4" placeholder="방 코드 입력"></div><div class="mode" style="'+(dev?'background:#e9f3ed;color:#0b5f31':'')+'">'+modeLabel()+'</div><button id="createBtn" class="action">새 방 만들기</button><button id="joinBtn" class="action hidden">방 참가하기</button></div></section>';
+ sheet.innerHTML='<section class="entry"><h1>회사 마피아</h1><p>죽이고, 살리고, 조사하고. 4~6명이 함께하는 추리 게임.</p><div class="tabs"><button id="createTab" class="tab active">방 만들기</button><button id="joinTab" class="tab">참가하기</button></div><div class="stack"><input id="name" class="input" maxlength="12" autocomplete="off" placeholder="매 게임 사용할 이름" value="'+esc(store.name)+'"><div id="codeWrap" class="hidden"><input id="code" class="input" maxlength="4" placeholder="방 코드 입력"></div><div class="mode" style="'+(dev?'background:#e9f3ed;color:#0b5f31':'')+'">'+modeLabel()+'</div><button id="createBtn" class="action">새 방 만들기</button><button id="joinBtn" class="action hidden">방 참가하기</button></div></section>';
  q('#createTab').onclick=()=>{q('#createTab').classList.add('active');q('#joinTab').classList.remove('active');q('#codeWrap').classList.add('hidden');q('#createBtn').classList.remove('hidden');q('#joinBtn').classList.add('hidden')};
  q('#joinTab').onclick=()=>{q('#joinTab').classList.add('active');q('#createTab').classList.remove('active');q('#codeWrap').classList.remove('hidden');q('#joinBtn').classList.remove('hidden');q('#createBtn').classList.add('hidden')};
  q('#createBtn').onclick=async()=>{const name=q('#name').value.trim();if(!name)return alert('이름을 입력하세요.');const r=await emit('mafia:create',{name});if(!r?.ok)return alert(r?.error||'생성 실패');saveSession(r.code,r.playerId,name);if(dev){const d=await emit('mafia:developerMode',{enabled:true});if(!d?.ok)alert(d?.error||'개발자 모드 설정 실패')}};
@@ -64,4 +64,4 @@ function render(){if(!store.room)return renderHome();({LOBBY:renderLobby,ROLE:re
 socket.on('connect',()=>{if(store.code&&store.playerId)socket.emit('mafia:join',{code:store.code,name:store.name,playerId:store.playerId},r=>{if(!r?.ok){clearSession();renderHome()}})});
 socket.on('mafia:update',room=>{store.room=room;render();startTicker()});
 renderHome();
-</script></body></html>
+</script><script src="/fresh-entry.js"></script></body></html>
