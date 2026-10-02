@@ -835,4 +835,128 @@ function setupTruthGame(io){
 }
 setupTruthGame(io);
 
+function setupMafiaGame(io){
+  const crypto=require('crypto');
+  const rooms=new Map();
+  const uid=()=>crypto.randomUUID();
+  function code(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();while(rooms.has(c));return c}
+  const alive=r=>r.players.filter(p=>p.alive);
+  const connected=r=>r.players.filter(p=>p.connected&&!p.bot);
+  const roleLabel=r=>({MAFIA:'마피아',DOCTOR:'의사',POLICE:'경찰',CITIZEN:'시민'})[r]||r;
+  function pub(room,viewerId){
+    const me=room.players.find(p=>p.id===viewerId);
+    return {
+      code:room.code,hostId:room.hostId,phase:room.phase,round:room.round,developerMode:!!room.developerMode,
+      timerEndsAt:room.timerEndsAt||null,candidate:room.candidate,winner:room.winner,log:room.log||[],
+      players:room.players.map(p=>({id:p.id,name:p.name,alive:p.alive,connected:p.connected,bot:!!p.bot,
+        role:room.phase==='OVER'?p.role:(p.id===viewerId?p.role:null),
+        voted:!!room.votes[p.id],actionDone:!!room.actionDone[p.id]})),
+      myRole:me?.role||null,myAlive:me?.alive!==false,
+      myNightResult:room.nightResults?.[viewerId]||null,
+      voteCount:Object.keys(room.votes||{}).length,
+      executeVotes:Object.keys(room.executeVotes||{}).length
+    };
+  }
+  function emitRoom(room){
+    for(const p of room.players){
+      if(p.bot||!p.socketId) continue;
+      io.to(p.socketId).emit('mafia:update',pub(room,p.id));
+    }
+  }
+  function clearTimer(room){if(room.timer){clearTimeout(room.timer);room.timer=null}room.timerEndsAt=null}
+  function setTimer(room,sec,fn){clearTimer(room);room.timerEndsAt=Date.now()+sec*1000;room.timer=setTimeout(()=>{const r=rooms.get(room.code);if(r)fn(r)},sec*1000)}
+  function assignRoles(room){
+    let roster=room.players.filter(p=>p.connected||p.bot);
+    const n=roster.length;
+    let roles=[];
+    if(n<=4) roles=['MAFIA','DOCTOR','CITIZEN','CITIZEN'];
+    else if(n===5) roles=['MAFIA','DOCTOR','POLICE','CITIZEN','CITIZEN'];
+    else roles=['MAFIA','DOCTOR','POLICE','CITIZEN','CITIZEN','CITIZEN'];
+    roles=shuffle(roles.slice(0,n));
+    roster.forEach((p,i)=>{p.role=roles[i];p.alive=true;p.correct=false});
+  }
+  function resetRound(room){room.votes={};room.executeVotes={};room.night={kill:null,save:null,inspect:null};room.nightResults={};room.actionDone={};room.candidate=null}
+  function ensureDevBots(room){
+    if(!room.developerMode) return;
+    const humans=room.players.filter(p=>!p.bot);
+    const bots=room.players.filter(p=>p.bot);
+    while(humans.length+bots.length<4){
+      const idx=bots.length+1;
+      const b={id:'bot-'+uid(),name:'테스트'+idx,bot:true,connected:true,alive:true,role:null,score:0,socketId:null};
+      room.players.push(b);bots.push(b);
+    }
+  }
+  function botVote(room){
+    const bots=alive(room).filter(p=>p.bot);
+    const targets=alive(room);
+    for(const b of bots){
+      const opts=targets.filter(p=>p.id!==b.id);
+      if(opts.length) room.votes[b.id]=opts[Math.floor(Math.random()*opts.length)].id;
+    }
+  }
+  function botExecute(room){
+    for(const b of alive(room).filter(p=>p.bot)) room.executeVotes[b.id]=Math.random()<0.5;
+  }
+  function botNight(room){
+    const a=alive(room);
+    const mafia=a.find(p=>p.bot&&p.role==='MAFIA');
+    const doctor=a.find(p=>p.bot&&p.role==='DOCTOR');
+    const police=a.find(p=>p.bot&&p.role==='POLICE');
+    if(mafia){const t=a.filter(p=>p.id!==mafia.id);if(t.length)room.night.kill=t[Math.floor(Math.random()*t.length)].id;room.actionDone[mafia.id]=true}
+    if(doctor){const t=a;if(t.length)room.night.save=t[Math.floor(Math.random()*t.length)].id;room.actionDone[doctor.id]=true}
+    if(police){const t=a.filter(p=>p.id!==police.id);if(t.length){const x=t[Math.floor(Math.random()*t.length)];room.night.inspect=x.id;room.nightResults[police.id]={targetName:x.name,isMafia:x.role==='MAFIA'}}room.actionDone[police.id]=true}
+  }
+  function checkWin(room){
+    const a=alive(room),maf=a.filter(p=>p.role==='MAFIA').length,cit=a.length-maf;
+    if(maf===0){room.winner='CITIZEN';room.phase='OVER';clearTimer(room);emitRoom(room);return true}
+    if(maf>=cit){room.winner='MAFIA';room.phase='OVER';clearTimer(room);emitRoom(room);return true}
+    return false;
+  }
+  function startDay(room){resetRound(room);room.phase='DAY';emitRoom(room);setTimer(room,120,startVote)}
+  function startVote(room){if(!['DAY','VOTE'].includes(room.phase))return;clearTimer(room);room.phase='VOTE';room.votes={};if(room.developerMode)botVote(room);emitRoom(room)}
+  function finishVote(room){
+    if(room.phase!=='VOTE')return;
+    const tally={};Object.values(room.votes).forEach(id=>tally[id]=(tally[id]||0)+1);
+    let max=0,cands=[];for(const [id,n] of Object.entries(tally)){if(n>max){max=n;cands=[id]}else if(n===max)cands.push(id)}
+    if(cands.length!==1||max===0){room.log.push('DAY '+room.round+': 최다 득표 동률 또는 무효표로 처형 후보 없음');return startNight(room)}
+    room.candidate=cands[0];room.phase='DEFENSE';emitRoom(room);setTimer(room,30,startExecute)
+  }
+  function startExecute(room){if(room.phase!=='DEFENSE')return;clearTimer(room);room.phase='EXECUTE';room.executeVotes={};if(room.developerMode)botExecute(room);emitRoom(room)}
+  function finishExecute(room){
+    if(room.phase!=='EXECUTE')return;
+    const yes=Object.values(room.executeVotes).filter(Boolean).length,no=Object.values(room.executeVotes).filter(v=>!v).length;
+    const c=room.players.find(p=>p.id===room.candidate);
+    if(c&&yes>no){c.alive=false;room.log.push('DAY '+room.round+': '+c.name+' 처형')}else room.log.push('DAY '+room.round+': 처형 부결');
+    if(checkWin(room))return;startNight(room)
+  }
+  function startNight(room){clearTimer(room);resetRound(room);room.phase='NIGHT';if(room.developerMode)botNight(room);emitRoom(room)}
+  function resolveNight(room){
+    if(room.phase!=='NIGHT')return;
+    const victim=room.night.kill,saved=room.night.save;
+    if(victim&&victim!==saved){const p=room.players.find(x=>x.id===victim);if(p){p.alive=false;room.log.push('NIGHT '+room.round+': '+p.name+' 사망')}}
+    else room.log.push('NIGHT '+room.round+': 사망자 없음');
+    room.phase='MORNING';emitRoom(room);checkWin(room)
+  }
+  function nextDay(room){if(room.phase!=='MORNING')return;room.round++;startDay(room)}
+  io.on('connection',socket=>{
+    socket.on('mafia:create',({name},cb)=>{const p={id:uid(),name:String(name||'방장').trim().slice(0,12),bot:false,connected:true,alive:true,role:null,socketId:socket.id};const room={code:code(),hostId:p.id,phase:'LOBBY',round:1,players:[p],developerMode:false,votes:{},executeVotes:{},night:{},nightResults:{},actionDone:{},candidate:null,winner:null,log:[],timer:null,timerEndsAt:null};rooms.set(room.code,room);socket.data.mafiaCode=room.code;socket.data.mafiaPlayerId=p.id;socket.join('mafia:'+room.code);cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
+    socket.on('mafia:join',({code:raw,name,playerId},cb)=>{const room=rooms.get(String(raw||'').toUpperCase());if(!room)return cb?.({ok:false,error:'방을 찾을 수 없습니다.'});let p=playerId&&room.players.find(x=>x.id===playerId&&!x.bot);if(p){p.connected=true;p.socketId=socket.id;if(name)p.name=String(name).trim().slice(0,12)}else{if(room.phase!=='LOBBY')return cb?.({ok:false,error:'게임 시작 후에는 새로 참가할 수 없습니다.'});if(room.players.filter(x=>!x.bot).length>=6)return cb?.({ok:false,error:'최대 6명까지 참가할 수 있습니다.'});p={id:uid(),name:String(name||'플레이어').trim().slice(0,12),bot:false,connected:true,alive:true,role:null,socketId:socket.id};room.players.push(p)}socket.data.mafiaCode=room.code;socket.data.mafiaPlayerId=p.id;socket.join('mafia:'+room.code);cb?.({ok:true,code:room.code,playerId:p.id});emitRoom(room)});
+    socket.on('mafia:developerMode',({enabled},cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId||room.phase!=='LOBBY')return cb?.({ok:false,error:'대기실 방장만 변경할 수 있습니다.'});room.developerMode=!!enabled;room.players=room.players.filter(p=>!p.bot);if(room.developerMode)ensureDevBots(room);emitRoom(room);cb?.({ok:true})});
+    socket.on('mafia:start',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId)return cb?.({ok:false,error:'방장만 시작할 수 있습니다.'});if(room.developerMode)ensureDevBots(room);const n=room.players.filter(p=>p.connected||p.bot).length;if(n<4||n>6)return cb?.({ok:false,error:'4~6명에서 시작할 수 있습니다.'});assignRoles(room);resetRound(room);room.round=1;room.winner=null;room.log=[];room.phase='ROLE';emitRoom(room);cb?.({ok:true})});
+    socket.on('mafia:role:ready',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.phase!=='ROLE')return;room.actionDone[socket.data.mafiaPlayerId]=true;const humans=connected(room);if(room.developerMode||humans.every(p=>room.actionDone[p.id]))startDay(room);cb?.({ok:true})});
+    socket.on('mafia:day:skip',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)startVote(room);cb?.({ok:true})});
+    socket.on('mafia:vote',({targetId},cb)=>{const room=rooms.get(socket.data.mafiaCode),pid=socket.data.mafiaPlayerId;if(!room||room.phase!=='VOTE')return cb?.({ok:false,error:'지금은 투표 단계가 아닙니다.'});const voter=room.players.find(p=>p.id===pid),target=room.players.find(p=>p.id===targetId&&p.alive);if(!voter?.alive||!target||target.id===pid)return cb?.({ok:false,error:'선택할 수 없는 대상입니다.'});room.votes[pid]=targetId;emitRoom(room);cb?.({ok:true});const needed=alive(room).filter(p=>!p.bot);if(needed.every(p=>room.votes[p.id]))finishVote(room)});
+    socket.on('mafia:vote:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)finishVote(room);cb?.({ok:true})});
+    socket.on('mafia:defense:skip',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)startExecute(room);cb?.({ok:true})});
+    socket.on('mafia:execute',({yes},cb)=>{const room=rooms.get(socket.data.mafiaCode),pid=socket.data.mafiaPlayerId;if(!room||room.phase!=='EXECUTE')return cb?.({ok:false,error:'처형 투표 단계가 아닙니다.'});const p=room.players.find(x=>x.id===pid);if(!p?.alive||pid===room.candidate)return cb?.({ok:false,error:'투표할 수 없습니다.'});room.executeVotes[pid]=!!yes;emitRoom(room);cb?.({ok:true});const needed=alive(room).filter(p=>!p.bot&&p.id!==room.candidate);if(needed.every(p=>Object.prototype.hasOwnProperty.call(room.executeVotes,p.id)))finishExecute(room)});
+    socket.on('mafia:execute:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)finishExecute(room);cb?.({ok:true})});
+    socket.on('mafia:night',({kind,targetId},cb)=>{const room=rooms.get(socket.data.mafiaCode),pid=socket.data.mafiaPlayerId;if(!room||room.phase!=='NIGHT')return cb?.({ok:false,error:'밤 행동 단계가 아닙니다.'});const p=room.players.find(x=>x.id===pid),t=room.players.find(x=>x.id===targetId&&x.alive);if(!p?.alive||!t)return cb?.({ok:false,error:'대상을 선택할 수 없습니다.'});const allowed={MAFIA:'kill',DOCTOR:'save',POLICE:'inspect'}[p.role];if(allowed!==kind)return cb?.({ok:false,error:'현재 역할로 할 수 없는 행동입니다.'});if(kind!=='save'&&t.id===p.id)return cb?.({ok:false,error:'자기 자신은 선택할 수 없습니다.'});room.night[kind]=targetId;room.actionDone[pid]=true;if(kind==='inspect')room.nightResults[pid]={targetName:t.name,isMafia:t.role==='MAFIA'};emitRoom(room);cb?.({ok:true,result:room.nightResults[pid]||null});const actors=alive(room).filter(x=>!x.bot&&['MAFIA','DOCTOR','POLICE'].includes(x.role));if(actors.every(x=>room.actionDone[x.id]))resolveNight(room)});
+    socket.on('mafia:night:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)resolveNight(room);cb?.({ok:true})});
+    socket.on('mafia:morning:next',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)nextDay(room);cb?.({ok:true})});
+    socket.on('mafia:stop',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId)return cb?.({ok:false,error:'방장만 게임을 중단할 수 있습니다.'});clearTimer(room);room.phase='LOBBY';room.players=room.players.filter(p=>!p.bot);room.players.forEach(p=>{p.alive=true;p.role=null});room.round=1;room.votes={};room.executeVotes={};room.night={};room.actionDone={};room.winner=null;room.candidate=null;room.log=[];if(room.developerMode)ensureDevBots(room);emitRoom(room);cb?.({ok:true})});
+    socket.on('disconnect',()=>{const room=rooms.get(socket.data.mafiaCode);if(!room)return;const p=room.players.find(x=>x.id===socket.data.mafiaPlayerId);if(p){p.connected=false;p.socketId=null}if(room.hostId===socket.data.mafiaPlayerId){const n=room.players.find(x=>x.connected&&!x.bot);if(n)room.hostId=n.id}emitRoom(room)})
+  });
+}
+setupMafiaGame(io);
+
 server.listen(PORT, () => console.log(`Weekly Coordination Sheet running on http://localhost:${PORT}`));
