@@ -840,7 +840,7 @@ function setupMafiaGame(io){
   const rooms=new Map();
   const uid=()=>crypto.randomUUID();
   function code(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();while(rooms.has(c));return c}
-  const alive=r=>r.players.filter(p=>p.alive);
+  const alive=r=>r.players.filter(p=>p.alive&&(p.bot||p.connected));
   const connected=r=>r.players.filter(p=>p.connected&&!p.bot);
   const roleLabel=r=>({MAFIA:'마피아',DOCTOR:'의사',POLICE:'경찰',CITIZEN:'시민'})[r]||r;
   function pub(room,viewerId){
@@ -913,7 +913,18 @@ function setupMafiaGame(io){
     return false;
   }
   function startDay(room){resetRound(room);room.phase='DAY';emitRoom(room);setTimer(room,120,startVote)}
-  function startVote(room){if(!['DAY','VOTE'].includes(room.phase))return;clearTimer(room);room.phase='VOTE';room.votes={};if(room.developerMode)botVote(room);emitRoom(room)}
+  function startVote(room){
+    if(!['DAY','VOTE'].includes(room.phase))return;
+    clearTimer(room);
+    room.phase='VOTE';
+    room.votes={};
+    if(room.developerMode)botVote(room);
+    emitRoom(room);
+    if(room.developerMode){
+      const humanVoters=alive(room).filter(p=>!p.bot);
+      if(humanVoters.length===0) setTimeout(()=>{const x=rooms.get(room.code);if(x&&x.phase==='VOTE')finishVote(x)},700);
+    }
+  }
   function finishVote(room){
     if(room.phase!=='VOTE')return;
     const tally={};Object.values(room.votes).forEach(id=>tally[id]=(tally[id]||0)+1);
@@ -921,7 +932,18 @@ function setupMafiaGame(io){
     if(cands.length!==1||max===0){room.log.push('DAY '+room.round+': 최다 득표 동률 또는 무효표로 처형 후보 없음');return startNight(room)}
     room.candidate=cands[0];room.phase='DEFENSE';emitRoom(room);setTimer(room,30,startExecute)
   }
-  function startExecute(room){if(room.phase!=='DEFENSE')return;clearTimer(room);room.phase='EXECUTE';room.executeVotes={};if(room.developerMode)botExecute(room);emitRoom(room)}
+  function startExecute(room){
+    if(room.phase!=='DEFENSE')return;
+    clearTimer(room);
+    room.phase='EXECUTE';
+    room.executeVotes={};
+    if(room.developerMode)botExecute(room);
+    emitRoom(room);
+    if(room.developerMode){
+      const humanVoters=alive(room).filter(p=>!p.bot&&p.id!==room.candidate);
+      if(humanVoters.length===0) setTimeout(()=>{const x=rooms.get(room.code);if(x&&x.phase==='EXECUTE')finishExecute(x)},700);
+    }
+  }
   function finishExecute(room){
     if(room.phase!=='EXECUTE')return;
     const yes=Object.values(room.executeVotes).filter(Boolean).length,no=Object.values(room.executeVotes).filter(v=>!v).length;
@@ -929,7 +951,17 @@ function setupMafiaGame(io){
     if(c&&yes>no){c.alive=false;room.log.push('DAY '+room.round+': '+c.name+' 처형')}else room.log.push('DAY '+room.round+': 처형 부결');
     if(checkWin(room))return;startNight(room)
   }
-  function startNight(room){clearTimer(room);resetRound(room);room.phase='NIGHT';if(room.developerMode)botNight(room);emitRoom(room)}
+  function startNight(room){
+    clearTimer(room);
+    resetRound(room);
+    room.phase='NIGHT';
+    if(room.developerMode)botNight(room);
+    emitRoom(room);
+    if(room.developerMode){
+      const humanActors=alive(room).filter(p=>!p.bot&&['MAFIA','DOCTOR','POLICE'].includes(p.role));
+      if(humanActors.length===0) setTimeout(()=>{const x=rooms.get(room.code);if(x&&x.phase==='NIGHT')resolveNight(x)},700);
+    }
+  }
   function resolveNight(room){
     if(room.phase!=='NIGHT')return;
     const victim=room.night.kill,saved=room.night.save;
@@ -953,7 +985,7 @@ function setupMafiaGame(io){
     socket.on('mafia:night',({kind,targetId},cb)=>{const room=rooms.get(socket.data.mafiaCode),pid=socket.data.mafiaPlayerId;if(!room||room.phase!=='NIGHT')return cb?.({ok:false,error:'밤 행동 단계가 아닙니다.'});const p=room.players.find(x=>x.id===pid),t=room.players.find(x=>x.id===targetId&&x.alive);if(!p?.alive||!t)return cb?.({ok:false,error:'대상을 선택할 수 없습니다.'});const allowed={MAFIA:'kill',DOCTOR:'save',POLICE:'inspect'}[p.role];if(allowed!==kind)return cb?.({ok:false,error:'현재 역할로 할 수 없는 행동입니다.'});if(kind!=='save'&&t.id===p.id)return cb?.({ok:false,error:'자기 자신은 선택할 수 없습니다.'});room.night[kind]=targetId;room.actionDone[pid]=true;if(kind==='inspect')room.nightResults[pid]={targetName:t.name,isMafia:t.role==='MAFIA'};emitRoom(room);cb?.({ok:true,result:room.nightResults[pid]||null});const actors=alive(room).filter(x=>!x.bot&&['MAFIA','DOCTOR','POLICE'].includes(x.role));if(actors.every(x=>room.actionDone[x.id]))resolveNight(room)});
     socket.on('mafia:night:finish',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)resolveNight(room);cb?.({ok:true})});
     socket.on('mafia:morning:next',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(room&&room.hostId===socket.data.mafiaPlayerId)nextDay(room);cb?.({ok:true})});
-    socket.on('mafia:stop',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId)return cb?.({ok:false,error:'방장만 게임을 중단할 수 있습니다.'});clearTimer(room);room.phase='LOBBY';room.players=room.players.filter(p=>!p.bot);room.players.forEach(p=>{p.alive=true;p.role=null});room.round=1;room.votes={};room.executeVotes={};room.night={};room.actionDone={};room.winner=null;room.candidate=null;room.log=[];if(room.developerMode)ensureDevBots(room);emitRoom(room);cb?.({ok:true})});
+    socket.on('mafia:stop',(_,cb)=>{const room=rooms.get(socket.data.mafiaCode);if(!room||room.hostId!==socket.data.mafiaPlayerId)return cb?.({ok:false,error:'방장만 게임을 중단할 수 있습니다.'});clearTimer(room);room.phase='LOBBY';room.players=room.players.filter(p=>!p.bot);room.players.forEach(p=>{p.alive=true;p.role=null});room.round=1;room.votes={};room.executeVotes={};room.night={};room.nightResults={};room.actionDone={};room.winner=null;room.candidate=null;room.log=[];if(room.developerMode)ensureDevBots(room);emitRoom(room);cb?.({ok:true})});
     socket.on('disconnect',()=>{const room=rooms.get(socket.data.mafiaCode);if(!room)return;const p=room.players.find(x=>x.id===socket.data.mafiaPlayerId);if(p){p.connected=false;p.socketId=null}if(room.hostId===socket.data.mafiaPlayerId){const n=room.players.find(x=>x.connected&&!x.bot);if(n)room.hostId=n.id}emitRoom(room)})
   });
 }
