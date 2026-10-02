@@ -47,7 +47,7 @@ function shuffle(list) {
 }
 
 function connected(room) {
-  return PLAYERS.filter(name => room.players[name]);
+  return Object.keys(room.players || {}).filter(name => !!room.players[name]);
 }
 
 function pickOne(list) {
@@ -87,7 +87,7 @@ function snapshot(room) {
   return {
     code: room.code,
     hostName: room.hostName,
-    players: PLAYERS.map(name => ({
+    players: Object.keys(room.players || {}).map(name => ({
       name,
       connected: !!room.players[name],
       voted: !!room.votes[name]
@@ -169,7 +169,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', socket => {
   socket.on('room:create', ({ name }, cb) => {
-    if (!PLAYERS.includes(name)) return cb?.({ ok: false, error: '등록된 참가자 이름이 아닙니다.' });
+    name = String(name || '').trim().slice(0, 20);
+    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
     const code = makeCode();
     const room = {
       code,
@@ -199,7 +200,8 @@ io.on('connection', socket => {
 
   socket.on('room:join', ({ code, name }, cb) => {
     code = String(code || '').trim().toUpperCase();
-    if (!PLAYERS.includes(name)) return cb?.({ ok: false, error: '등록된 참가자 이름이 아닙니다.' });
+    name = String(name || '').trim().slice(0, 20);
+    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
     const room = rooms.get(code);
     if (!room) return cb?.({ ok: false, error: '방을 찾을 수 없습니다.' });
     join(socket, room, name, cb);
@@ -441,7 +443,7 @@ function relayCode() {
 function relayConnected(room) {
   return room.roundPlayers?.length
     ? room.roundPlayers.filter(name => room.players[name])
-    : PLAYERS.filter(name => room.players[name]);
+    : Object.keys(room.players || {}).filter(name => !!room.players[name]);
 }
 
 function relaySnapshot(room) {
@@ -449,7 +451,7 @@ function relaySnapshot(room) {
     code: room.code,
     hostName: room.hostName,
     status: room.status,
-    players: PLAYERS.map(name => ({ name, connected: !!room.players[name] })),
+    players: Object.keys(room.players || {}).map(name => ({ name, connected: !!room.players[name] })),
     roundPlayers: room.roundPlayers || [],
     order: room.order || [],
     submitted: room.submitted || [],
@@ -540,7 +542,8 @@ function relayMaybeAdvance(room) {
 
 io.on('connection', socket => {
   socket.on('relay:create', ({ name }, cb) => {
-    if (!PLAYERS.includes(name)) return cb?.({ ok: false, error: '등록된 참가자 이름이 아닙니다.' });
+    name = String(name || '').trim().slice(0, 20);
+    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
     const code = relayCode();
     const room = {
       code,
@@ -561,7 +564,8 @@ io.on('connection', socket => {
 
   socket.on('relay:join', ({ code, name }, cb) => {
     code = String(code || '').trim().toUpperCase();
-    if (!PLAYERS.includes(name)) return cb?.({ ok: false, error: '등록된 참가자 이름이 아닙니다.' });
+    name = String(name || '').trim().slice(0, 20);
+    if (!name) return cb?.({ ok:false, error:'이름을 입력하세요.' });
     const room = relayRooms.get(code);
     if (!room) return cb?.({ ok: false, error: '방을 찾을 수 없습니다.' });
     relayJoin(socket, room, name, cb);
@@ -576,7 +580,7 @@ io.on('connection', socket => {
   socket.on('relay:start', ({ code }) => {
     const room = relayRooms.get(code);
     if (!room || socket.data.relayName !== room.hostName) return;
-    const active = PLAYERS.filter(name => room.players[name]);
+    const active = Object.keys(room.players || {}).filter(name => room.players[name]);
     if (active.length < (room.developerMode ? 1 : 3)) {
       socket.emit('relay:error', room.developerMode ? '개발자 모드에서는 1명 이상이면 시작할 수 있습니다.' : '최소 3명이 입장해야 시작할 수 있습니다.');
       return;
@@ -674,7 +678,7 @@ io.on('connection', socket => {
     if (!room || !name) return;
     if (room.players[name] === socket.id) delete room.players[name];
     if (name === room.hostName) {
-      const remaining = PLAYERS.filter(n => room.players[n]);
+      const remaining = Object.keys(room.players || {}).filter(n => room.players[n]);
       if (remaining.length) room.hostName = remaining[0];
     }
     relayBroadcast(room);
