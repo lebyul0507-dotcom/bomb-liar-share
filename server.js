@@ -871,7 +871,7 @@ function setupMafiaGame(io){
     if(maf>=cit){room.winner='MAFIA';room.phase='OVER';clearTimer(room);emitRoom(room);return true}
     return false;
   }
-  function startDay(room){resetRound(room);room.phase='DAY';emitRoom(room);setTimer(room,120,startVote)}
+  function startDay(room){resetRound(room);room.phase='DAY';emitRoom(room);setTimer(room,180,startVote)}
   function startVote(room){
     if(!['DAY','VOTE'].includes(room.phase))return;
     clearTimer(room);
