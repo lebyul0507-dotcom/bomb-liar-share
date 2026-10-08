@@ -16,6 +16,11 @@
 .notice{padding:12px;background:#f7f7f7;border-left:4px solid #999;margin:12px 0}.notice.good{background:var(--soft);border-left-color:var(--excel)}.notice.danger{background:#fdeaea;border-left-color:var(--danger)}.code{font:800 24px Consolas,monospace;letter-spacing:.13em;color:var(--dark)}
 .role{padding:28px;text-align:center;border:2px solid var(--excel);background:#f5fbf7}.role .big{font-size:36px;font-weight:900;margin-bottom:8px}.timer{font-size:42px;font-weight:900;text-align:center;margin:18px 0}.choices{display:grid;gap:8px}.choice{display:flex;align-items:center;gap:10px;border:1px solid #bbb;padding:12px;background:#fff}.choice input{width:20px;height:20px;accent-color:var(--excel)}.stage{font-size:13px;color:#666;font-weight:800}.result-title{text-align:center;font-size:36px;font-weight:900;margin:12px 0 24px}
 .chatbox{margin-top:18px;border:1px solid #aaa;background:#fff}.chat-head{padding:9px 12px;background:#f3f3f3;border-bottom:1px solid #ddd;font-weight:800}.chat-list{height:220px;overflow:auto;padding:8px;background:#fafafa}.chat-row{display:grid;grid-template-columns:88px 1fr;gap:8px;padding:7px 8px;border-bottom:1px solid #eee}.chat-name{font-weight:800;color:var(--dark)}.chat-text{word-break:break-word}.chat-send{display:grid;grid-template-columns:1fr 92px;gap:8px;padding:9px;border-top:1px solid #ddd}.chat-send input{height:42px;border:1px solid #aaa;padding:0 10px}.chat-send button{height:42px}
+.phase-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.58);animation:phaseFade 1.7s ease forwards;pointer-events:none}
+.phase-card{min-width:360px;max-width:80vw;padding:34px 44px;background:#fff;border:3px solid var(--excel);box-shadow:0 18px 60px #0005;text-align:center;font-size:40px;font-weight:900}
+.phase-card.night{background:#18212b;color:#fff;border-color:#18212b}
+@keyframes phaseFade{0%{opacity:0}12%{opacity:1}78%{opacity:1}100%{opacity:0}}
+
 @media(max-width:700px){.titlebar{height:94px;padding:0 22px}.brand{font-size:25px}.menu-top{gap:22px;padding:0 28px;overflow:hidden;white-space:nowrap}.sheet{padding:82px 16px}.entry,.panel{width:100%}.entry{padding:28px 30px}.entry h1{font-size:32px}.tab{height:68px}.input{height:64px}}
 </style>
 </head>
@@ -26,7 +31,7 @@
 <script>
 const socket=io();
 const sheet=document.getElementById('sheet');
-const store={room:null,playerId:'',code:'',name:'',timer:null};
+const store={room:null,playerId:'',code:'',name:'',timer:null,lastPhase:null};
 const q=(s,r=document)=>r.querySelector(s);
 const emit=(name,data={})=>new Promise(resolve=>socket.emit(name,data,resolve));
 const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -35,6 +40,15 @@ const isHost=()=>store.room?.hostId===store.playerId;
 function saveSession(code,id,name){store.code=code;store.playerId=id;store.name=name;}
 function clearSession(){store.room=null;store.code='';store.playerId='';localStorage.removeItem('mafiaRoomCode');localStorage.removeItem('mafiaPlayerId')}
 function modeLabel(){return localStorage.getItem('teamSyncDeveloperMode')==='1'?'🛠 개발자 모드 ON · 혼자 테스트':'일반 멀티플레이 모드'}
+function showPhaseNotice(phase){
+  if(!['DAY','NIGHT'].includes(phase))return;
+  const old=document.querySelector('.phase-overlay');if(old)old.remove();
+  const wrap=document.createElement('div');wrap.className='phase-overlay';
+  const card=document.createElement('div');card.className='phase-card'+(phase==='NIGHT'?' night':'');
+  card.textContent=phase==='DAY'?'☀️ 낮이 되었습니다':'🌙 밤이 되었습니다';
+  wrap.appendChild(card);document.body.appendChild(wrap);
+  setTimeout(()=>wrap.remove(),1750);
+}
 function chatMarkup(canSend=true){
  const rows=(store.room?.chat||[]).map(x=>'<div class="chat-row"><div class="chat-name">'+esc(x.name)+'</div><div class="chat-text">'+esc(x.text)+'</div></div>').join('');
  return '<div class="chatbox"><div class="chat-head">같이 얘기하기</div><div id="chatList" class="chat-list">'+(rows||'<div class="notice">아직 대화가 없습니다.</div>')+'</div>'+(canSend?'<div class="chat-send"><input id="chatInput" maxlength="160" placeholder="메시지를 입력하세요"><button id="chatBtn" class="btn primary">보내기</button></div>':'')+'</div>';
@@ -64,7 +78,7 @@ function renderHome(){
 }
 function renderLobby(){const r=store.room;sheet.innerHTML='<section class="panel"><div class="panel-title">ISSUE REVIEW / Session Setup</div><div class="panel-body"><div class="row between"><div><div style="color:#666">SESSION CODE</div><div class="code">'+esc(r.code)+'</div></div><b>'+r.players.length+' / 6</b></div>'+(r.developerMode?'<div class="notice good">🛠 개발자 모드 ON · 테스트 인원을 자동으로 채웁니다.</div>':'<div class="notice">일반 모드 · 4~6명에서 시작할 수 있습니다.</div>')+'<table class="table"><thead><tr><th>이름</th><th>접속</th><th>상태</th></tr></thead><tbody>'+playerRows(false)+'</tbody></table><div class="row" style="margin-top:16px">'+(isHost()?'<button id="startBtn" class="btn primary">검토 시작</button><button id="devBtn" class="btn">'+(r.developerMode?'개발자 모드 끄기':'개발자 모드 켜기')+'</button>':'')+'<a href="/" class="btn" style="text-decoration:none;display:flex;align-items:center">메인으로</a></div></div></section>';const b=q('#startBtn');if(b)b.onclick=async()=>{const x=await emit('mafia:start');if(!x?.ok)alert(x?.error||'시작 실패')};const d=q('#devBtn');if(d)d.onclick=async()=>{const x=await emit('mafia:developerMode',{enabled:!r.developerMode});if(!x?.ok)return alert(x?.error||'개발자 모드 변경 실패');localStorage.setItem('teamSyncDeveloperMode',r.developerMode?'0':'1')}}
 function renderRole(){sheet.innerHTML='<section class="panel">'+renderPhaseHeader('ROLE REVEAL · ROUND '+store.room.round)+'<div class="panel-body"><div class="role"><div class="big">'+roleName(store.room.myRole)+'</div><p>'+esc(roleDesc(store.room.myRole))+'</p></div><button id="readyBtn" class="btn primary" style="margin-top:18px">역할 확인 완료</button></div></section>';bindStop();q('#readyBtn').onclick=()=>emit('mafia:role:ready')}
-function renderDay(){sheet.innerHTML='<section class="panel">'+renderPhaseHeader('DAY '+store.room.round+' · 자유 토론')+'<div class="panel-body"><div id="timer" class="timer">'+fmt(left())+'</div><div class="notice">여기서 모두 같이 얘기하세요. 채팅은 참가자 전원에게 실시간으로 보입니다.</div><table class="table"><thead><tr><th>이름</th><th>접속</th><th>상태</th></tr></thead><tbody>'+playerRows(false)+'</tbody></table>'+chatMarkup(!!me()?.alive)+(isHost()?'<button id="nextBtn" class="btn primary" style="margin-top:16px">투표로 이동</button>':'')+'</div></section>';bindStop();bindChat();const b=q('#nextBtn');if(b)b.onclick=()=>emit('mafia:day:skip')}
+function renderDay(){sheet.innerHTML='<section class="panel">'+renderPhaseHeader('DAY '+store.room.round+' · 자유 토론')+'<div class="panel-body"><div id="timer" class="timer">'+fmt(left())+'</div><div class="notice">낮 토론 시간은 3분입니다. 03:00이 끝나면 자동으로 투표 단계로 넘어갑니다.</div><table class="table"><thead><tr><th>이름</th><th>접속</th><th>상태</th></tr></thead><tbody>'+playerRows(false)+'</tbody></table>'+chatMarkup(!!me()?.alive)+(isHost()?'<button id="nextBtn" class="btn primary" style="margin-top:16px">투표로 이동</button>':'')+'</div></section>';bindStop();bindChat();const b=q('#nextBtn');if(b)b.onclick=()=>emit('mafia:day:skip')}
 function renderVote(){const r=store.room,m=me(),choices=r.players.filter(p=>p.alive&&p.id!==store.playerId);sheet.innerHTML='<section class="panel">'+renderPhaseHeader('DAY '+r.round+' · 리스크 요인 지목 투표')+'<div class="panel-body"><div class="notice">투표 완료 '+r.voteCount+'명</div>'+(m?.alive?'<div>'+choices.map(p=>'<label class="choice"><input type="radio" name="vote" value="'+p.id+'">'+esc(p.name)+(p.bot?' · TEST':'')+'</label>').join('')+'</div><button id="voteBtn" class="btn primary">투표 제출</button>':'<div class="notice">검토 대상에서 제외되어 관전 중입니다.</div>')+(isHost()?'<button id="finishBtn" class="btn" style="margin-left:8px">현재 투표로 마감</button>':'')+'</div></section>';bindStop();const vb=q('#voteBtn');if(vb)vb.onclick=async()=>{const x=q('input[name=vote]:checked');if(!x)return alert('대상을 선택하세요.');const y=await emit('mafia:vote',{targetId:x.value});if(!y?.ok)alert(y.error)};const fb=q('#finishBtn');if(fb)fb.onclick=()=>emit('mafia:vote:finish')}
 function candidate(){return store.room.players.find(p=>p.id===store.room.candidate)}
 function renderDefense(){const c=candidate(),canSpeak=store.playerId===c?.id&&!!me()?.alive;sheet.innerHTML='<section class="panel">'+renderPhaseHeader('FINAL REVIEW')+'<div class="panel-body" style="text-align:center"><h2>'+esc(c?.name||'-')+' 님 최후 변론</h2><div id="timer" class="timer">'+fmt(left())+'</div><div style="text-align:left">'+chatMarkup(canSpeak)+'</div>'+(isHost()?'<button id="nextBtn" class="btn primary" style="margin-top:16px">최종 결정으로 이동</button>':'')+'</div></section>';bindStop();bindChat();const b=q('#nextBtn');if(b)b.onclick=()=>emit('mafia:defense:skip')}
@@ -74,6 +88,13 @@ function renderMorning(){const last=store.room.log[store.room.log.length-1]||'�
 function renderOver(){sheet.innerHTML='<section class="panel"><div class="panel-title">REVIEW CLOSED</div><div class="panel-body"><h1 style="text-align:center">'+(store.room.winner==='MAFIA'?'RISK WIN':'TEAM WIN')+'</h1><table class="table"><thead><tr><th>이름</th><th>접속</th><th>상태</th><th>역할</th></tr></thead><tbody>'+playerRows(true)+'</tbody></table>'+(isHost()?'<button id="backBtn" class="btn primary" style="margin-top:16px">대기실로 돌아가기</button>':'')+'</div></section>';const b=q('#backBtn');if(b)b.onclick=()=>emit('mafia:stop')}
 function render(){if(!store.room)return renderHome();({LOBBY:renderLobby,ROLE:renderRole,DAY:renderDay,VOTE:renderVote,DEFENSE:renderDefense,EXECUTE:renderExecute,NIGHT:renderNight,REVIEW RESULT:renderMorning,OVER:renderOver}[store.room.phase]||renderHome)()}
 socket.on('connect',()=>{if(store.code&&store.playerId)socket.emit('mafia:join',{code:store.code,name:store.name,playerId:store.playerId},r=>{if(!r?.ok){clearSession();renderHome()}})});
-socket.on('mafia:update',room=>{store.room=room;render();startTicker()});
+socket.on('mafia:update',room=>{
+  const prev=store.lastPhase;
+  store.room=room;
+  render();
+  startTicker();
+  if(room.phase!==prev) showPhaseNotice(room.phase);
+  store.lastPhase=room.phase;
+});
 renderHome();
 </script><script src="/fresh-entry.js"></script></body></html>
